@@ -303,7 +303,7 @@ describe('BookmarkCard', () => {
 
   it('普通点击打开当前标签，Ctrl 点击新标签', () => {
     const onOpen = vi.fn();
-    const { container } = render(<BookmarkCard bookmark={bookmark} hue="#f2b33d" onOpen={onOpen} />);
+    render(<BookmarkCard bookmark={bookmark} hue="#f2b33d" onOpen={onOpen} />);
     const card = screen.getByLabelText('打开 知乎');
 
     fireEvent.click(card, { ctrlKey: false });
@@ -314,7 +314,7 @@ describe('BookmarkCard', () => {
     // 新标签按钮不触发卡片自身的 onOpen
     fireEvent.click(screen.getByLabelText('在新标签页打开 知乎'));
     expect(onOpen).toHaveBeenLastCalledWith(bookmark, true);
-    expect(container).toBeTruthy();
+    expect(onOpen).toHaveBeenCalledTimes(3);
   });
 
   it('编辑、删除与选择回调', () => {

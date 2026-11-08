@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import { getBackend } from '@/core/backend';
 import { store } from '@/core/store';
 import { bookmarkService } from '@/core/bookmarks';
@@ -13,11 +13,6 @@ import { BackupView } from './BackupView';
 import { SettingsView } from './SettingsView';
 import { demoFetchFor } from './demoScan';
 import { TrashPanel } from './TrashPanel';
-
-beforeAll(() => {
-  (URL as { createObjectURL?: unknown }).createObjectURL = vi.fn(() => 'blob:mock');
-  (URL as { revokeObjectURL?: unknown }).revokeObjectURL = vi.fn();
-});
 
 async function seedStore() {
   await store.getState().init();
@@ -142,7 +137,9 @@ describe('TrashPanel', () => {
     expect(requests).toHaveLength(1);
     expect(requests[0].title).toBe('永久删除这一批');
 
-    await requests[0].onConfirm();
+    await act(async () => {
+      await requests[0].onConfirm();
+    });
     await waitFor(async () => expect(await listTrash()).toHaveLength(0));
   });
 });
@@ -189,7 +186,9 @@ describe('BackupView', () => {
     await waitFor(() => expect(requests.length).toBe(1));
     expect(requests[0].title).toBe('从 JSON 备份恢复');
 
-    await requests[0].onConfirm();
+    await act(async () => {
+      await requests[0].onConfirm();
+    });
     await waitFor(() => expect(store.getState().flat.some((item) => item.url === 'https://backup.example.com/')).toBe(true));
     await waitFor(() => {
       const tagged = Object.values(store.getState().settings.tags).some((tags) => tags.includes('重要'));
@@ -241,7 +240,9 @@ describe('SettingsView', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /清除检测缓存/ }));
     expect(requests[0].title).toBe('清除检测缓存');
-    await requests[0].onConfirm();
+    await act(async () => {
+      await requests[0].onConfirm();
+    });
     await waitFor(() =>
       expect(store.getState().toasts.some((toast) => toast.message === '检测缓存已清除')).toBe(true),
     );

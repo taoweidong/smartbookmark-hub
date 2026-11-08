@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';
 import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
@@ -41,6 +42,17 @@ function resolveChromium() {
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = resolve(root, 'dist');
 const shots = resolve(root, 'test-results');
+
+// E2E 加载的是 dist 产物：默认先构建，避免拿陈旧产物验证出假绿
+if (process.env.SBH_SKIP_BUILD !== '1') {
+  process.stdout.write('构建扩展产物（SBH_SKIP_BUILD=1 可跳过）…\n');
+  const built = spawnSync('npm run build', { cwd: root, stdio: 'inherit', shell: true });
+  if (built.status !== 0) {
+    process.stderr.write('构建失败，E2E 中止\n');
+    process.exit(built.status ?? 1);
+  }
+}
+
 await mkdir(shots, { recursive: true });
 
 const failures = [];

@@ -110,8 +110,15 @@ describe('checkLink', () => {
       new Promise<Response>((_resolve, reject) => {
         init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
       })) as unknown as typeof fetch;
-    const result = await checkLink('https://example.com/a', options({ timeoutMs: 20, fetchImpl }));
-    expect(result.status).toBe('timeout');
+    // 用假时钟推进超时，避免依赖真实 20ms 计时（慢机器上会 flaky）
+    vi.useFakeTimers();
+    try {
+      const pending = checkLink('https://example.com/a', options({ timeoutMs: 20, fetchImpl }));
+      await vi.advanceTimersByTimeAsync(20);
+      expect((await pending).status).toBe('timeout');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('非 http(s) 链接直接跳过且不发请求', async () => {

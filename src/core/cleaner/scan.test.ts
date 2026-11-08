@@ -122,13 +122,19 @@ describe('runScan', () => {
 
   it('报告按时间倒序持久化', async () => {
     setBackend(createDemoBackend(seed()));
-    const first = await runScan(options(mockFetch()));
-    await new Promise((resolve) => setTimeout(resolve, 5));
-    const second = await runScan(options(mockFetch()));
-    const reports = await listReports();
-    expect(reports).toHaveLength(2);
-    expect(reports[0].id).toBe(second.id);
-    expect(reports[1].id).toBe(first.id);
+    // 用假时钟保证 startedAt 严格递增，不依赖真实计时器粒度
+    vi.useFakeTimers({ now: 1_700_000_000_000 });
+    try {
+      const first = await runScan(options(mockFetch()));
+      vi.setSystemTime(1_700_000_000_000 + 60_000);
+      const second = await runScan(options(mockFetch()));
+      const reports = await listReports();
+      expect(reports).toHaveLength(2);
+      expect(reports[0].id).toBe(second.id);
+      expect(reports[1].id).toBe(first.id);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('扫描过程持续回调进度', async () => {

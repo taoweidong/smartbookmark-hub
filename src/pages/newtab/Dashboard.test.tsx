@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { store } from '@/core/store';
 import { collectFolders } from '@/core/bookmarks';
@@ -118,12 +118,16 @@ describe('makeTab', () => {
 describe('BackgroundLayer', () => {
   it('solid 背景渲染自定义颜色，未选颜色时不渲染', () => {
     const base = defaultSettings();
-    store.setState({ settings: { ...base, dashboard: { ...base.dashboard, background: { type: 'solid', value: '#223355' } } } });
+    act(() => {
+      store.setState({ settings: { ...base, dashboard: { ...base.dashboard, background: { type: 'solid', value: '#223355' } } } });
+    });
     const { rerender } = render(<BackgroundLayer />);
     const layer = document.querySelector('div.fixed.inset-0.z-0') as HTMLElement | null;
     expect(layer?.style.background).toContain('rgb(34, 51, 85)'); // #223355
 
-    store.setState({ settings: { ...base, dashboard: { ...base.dashboard, background: { type: 'solid', value: '' } } } });
+    act(() => {
+      store.setState({ settings: { ...base, dashboard: { ...base.dashboard, background: { type: 'solid', value: '' } } } });
+    });
     rerender(<BackgroundLayer />);
     expect(document.querySelector('div.fixed.inset-0.z-0')).toBeNull();
   });

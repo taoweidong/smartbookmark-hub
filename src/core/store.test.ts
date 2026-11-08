@@ -143,7 +143,8 @@ describe('store.pushToast', () => {
     const id = store.getState().pushToast({ message: '手动', tone: 'info' });
     store.getState().dismissToast(id);
     expect(store.getState().toasts).toHaveLength(0);
-    expect(() => vi.advanceTimersByTime(10_000)).not.toThrow();
+    vi.advanceTimersByTime(10_000);
+    expect(store.getState().toasts).toHaveLength(0);
   });
 });
 
