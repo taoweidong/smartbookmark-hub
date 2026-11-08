@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canonicalUrl, displayUrl, hostOf, isHttpUrl, letterAvatar } from './url';
+import { canonicalUrl, displayUrl, faviconUrl, hostOf, isHttpUrl, letterAvatar } from './url';
 
 describe('canonicalUrl', () => {
   it('小写化协议与主机、去掉默认端口、hash 与跟踪参数并排序 query', () => {
@@ -74,5 +74,22 @@ describe('URL 辅助函数', () => {
     expect(letterAvatar('github.com').hue).toBe(a.hue);
     expect(a.hue).toBeGreaterThanOrEqual(0);
     expect(a.hue).toBeLessThan(360);
+  });
+
+  it('letterAvatar 去掉 www 前缀，空串回退问号', () => {
+    expect(letterAvatar('www.zhihu.com').letter).toBe('Z');
+    expect(letterAvatar('')).toEqual({ letter: '?', hue: 0 });
+  });
+});
+
+describe('faviconUrl', () => {
+  it('无扩展运行时返回空串（调用方走字母色块兜底）', () => {
+    expect(faviconUrl('https://a.com/')).toBe('');
+  });
+});
+
+describe('displayUrl 边界', () => {
+  it('非 http(s) 原样返回', () => {
+    expect(displayUrl('chrome://extensions/')).toBe('chrome://extensions/');
   });
 });

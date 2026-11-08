@@ -3,7 +3,6 @@ import { flattenTree } from './bookmarks';
 import { createFixtureTree } from './fixtures';
 import { buildEntries, rankBookmarks, scoreEntry, searchAll, splitTerms } from './search';
 import type { SearchEntry } from './types';
-
 async function entries(tags: Record<string, string[]> = {}): Promise<SearchEntry[]> {
   return buildEntries(flattenTree(createFixtureTree()), tags);
 }
@@ -120,5 +119,68 @@ describe('searchAll 优先级', () => {
     expect(results).toHaveLength(1);
     expect(results[0].kind).toBe('web');
     expect(results[0].title).toContain('zzzznope');
+  });
+});
+
+describe('打分细节', () => {
+  function entry(over: Partial<SearchEntry>): SearchEntry {
+    return {
+      id: 'b1',
+      title: '周报',
+      url: 'https://work.example.com/report',
+      parentId: '1',
+      folderPath: ['书签栏', '工作'],
+      dateAdded: Date.now(),
+      host: 'work.example.com',
+      canonicalUrl: 'https://work.example.com/report',
+      titleLower: '周报',
+      urlLower: 'https://work.example.com/report',
+      initials: 'zb',
+      pinyinFull: 'zhoubao',
+      tags: [],
+      folderLower: '书签栏/工作',
+      tagLowers: [],
+      ...over,
+    };
+  }
+
+  it('文件夹路径命中并标注 matchedOn', () => {
+    const hit = scoreEntry([entry({})][0], ['工作']);
+    expect(hit).not.toBeNull();
+    expect(hit!.matchedOn).toContain('文件夹');
+    expect(hit!.score).toBeGreaterThanOrEqual(15);
+  });
+
+  it('标签全等得分高于包含', () => {
+    const exact = entry({ tags: ['前端'], tagLowers: ['前端'] });
+    const partial = entry({ tags: ['前端工程化'], tagLowers: ['前端工程化'] });
+    const terms = ['前端'];
+    expect(scoreEntry(exact, terms)!.score).toBeGreaterThan(scoreEntry(partial, terms)!.score);
+  });
+
+  it('近 7 天新增获得加成', () => {
+    const terms = ['周报'];
+    const fresh = scoreEntry(entry({}), terms)!;
+    const stale = scoreEntry(entry({ dateAdded: Date.now() - 30 * 86_400_000 }), terms)!;
+    expect(fresh.score - stale.score).toBe(10);
+  });
+
+  it('过长标题受到惩罚', () => {
+    const terms = ['abc'];
+    const short = scoreEntry(entry({ title: 'xabc', titleLower: 'xabc' }), terms)!;
+    const long = scoreEntry(
+      entry({ title: `xabc${'y'.repeat(200)}`, titleLower: `xabc${'y'.repeat(200)}` }),
+      terms,
+    )!;
+    expect(short.score).toBeGreaterThan(long.score);
+  });
+
+  it('同一 canonicalUrl 只保留一条结果', () => {
+    const list = [
+      entry({ id: 'a', url: 'https://dup.com/?utm_source=x', canonicalUrl: 'https://dup.com/', urlLower: 'https://dup.com/?utm_source=x' }),
+      entry({ id: 'b', url: 'https://dup.com/', canonicalUrl: 'https://dup.com/', urlLower: 'https://dup.com/' }),
+    ];
+    const results = rankBookmarks(list, 'dup', 10);
+    expect(results).toHaveLength(1);
   });
 });

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { getBackend } from './backend';
 import { bookmarkService, findNode } from './bookmarks';
 import { deleteWithUndo, listTrash, purgeAll, purgeBatch, restoreBatch, snapshotNodes } from './trash';
@@ -112,5 +112,26 @@ describe('deleteWithUndo / restoreBatch', () => {
 
   it('恢复不存在的批次时抛错', async () => {
     await expect(restoreBatch('missing')).rejects.toThrow('回收站中找不到该批次');
+  });
+});
+
+describe('listTrash 排序', () => {
+  it('按删除时间倒序，最新批次在前', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(1_700_000_000_000);
+      const a = await bookmarkService.create({ parentId: '1', title: '早', url: 'https://early.example.com/' });
+      const batchA = await deleteWithUndo([a.id], '早批次');
+      vi.setSystemTime(1_700_000_060_000);
+      const b = await bookmarkService.create({ parentId: '1', title: '晚', url: 'https://late.example.com/' });
+      await deleteWithUndo([b.id], '晚批次');
+
+      const batches = await listTrash();
+      expect(batches).toHaveLength(2);
+      expect(batches[0].label).toBe('晚批次');
+      expect(batches[0].deletedAt).toBeGreaterThan(batchA.deletedAt);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

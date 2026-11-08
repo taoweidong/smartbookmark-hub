@@ -63,4 +63,13 @@ describe('runPool', () => {
   it('size 大于任务数时不会越界', async () => {
     expect(await runPool([1, 2], 10, async (n) => n + 1)).toEqual([2, 3]);
   });
+
+  it('worker 抛错时整个池以该错误拒绝', async () => {
+    await expect(
+      runPool([1, 2, 3], 2, async (n) => {
+        if (n === 2) throw new Error('boom');
+        return n;
+      }),
+    ).rejects.toThrow('boom');
+  });
 });
