@@ -32,7 +32,7 @@ npm run test        # 前端与后端（core）单元/组件测试必须全部�
 ## 4. 架构约束（与 docs/SmartBookmark-Hub-技术方案.md 一致）
 
 - `src/core/**` 禁止 import React、禁止直接引用 `document/window`（`yieldToBrowser` 的能力检测除外）。
-- 所有 `chrome.*` 调用只允许出现在 `src/core/backend.ts`、`src/core/chromeBackend.ts` 与 `src/background/**`。
+- 所有 `chrome.*` 调用只允许出现在 `src/core/backend.ts`、`src/core/chromeBackend.ts` 与 `src/background/**`；core 其余位置仅允许只读能力检测（如 `src/core/url.ts` 的 `faviconUrl` 读取 `chrome.runtime.id`），不得调用任何 `chrome.*` API。
 - 页面层只调用 core 暴露的 service/store，不得绕过适配层。
 - 删除类操作必须走「快照 → 回收站 → 确认」链路；`blocked/error/timeout` 检测结果绝不进入删除预览。
 - 搜索排序恒定：书签 > 历史（score ≤ 40）> 网页（score = -1）。

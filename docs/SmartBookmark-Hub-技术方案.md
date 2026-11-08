@@ -1,7 +1,8 @@
 # SmartBookmark Hub 技术方案
 
-> 版本：v1.0 ｜ 日期：2026-11-07 ｜ 状态：已定稿，作为实现依据
+> 版本：v1.1 ｜ 日期：2026-11-08 ｜ 状态：已定稿，作为实现依据
 > 配套实施计划：[实施计划.md](./实施计划.md)
+> v1.1 变更同步说明见文末「13. 变更记录」。
 
 ---
 
@@ -93,7 +94,7 @@
 
 ### 3.2 Service Worker 职责（`src/background/index.ts`）
 
-- `chrome.omnibox`：`onInputStarted` / `onInputChanged`（防抖 120ms，返回书签优先建议）/ `onInputEntered`（按 disposition 打开）
+- `chrome.omnibox`：`onInputStarted` / `onInputChanged`（防抖 120ms，返回书签优先建议）/ `onInputEntered`（按 disposition 打开；未命中建议的自由文本回车时交给默认搜索引擎兜底，绝不把原始文本当 URL 打开）
 - `chrome.commands.onCommand`：`open-hub`、`quick-search`
 - `chrome.contextMenus`：选中文字 → 「用 SmartBookmark Hub 搜索」；页面 → 「收藏到 SmartBookmark Hub」
 - `chrome.runtime.onMessage`：页面 ↔ SW 的薄消息路由（打开首页、请求 host 权限结果广播）
@@ -141,6 +142,7 @@ export type ResultKind = 'bookmark' | 'history' | 'web';
 export interface SearchResult {
   kind: ResultKind; id: string; title: string; url: string;
   subtitle: string; score: number; matchedOn: string;
+  query?: string;                           // kind === 'web' 时携带原始查询词，避免 UI 从标题文案反解
 }
 
 export interface Settings {
@@ -332,9 +334,11 @@ canonicalUrl(url, { ignoreWww }):
 预览（勾选）→ 确认对话框（列出数量与影响）
   → snapshot(node)（文件夹递归含 children、原 parentId/index）
   → 写入 IndexedDB trash 批次
-  → chrome.bookmarks.remove / removeTree
+  → chrome.bookmarks.remove / removeTree（逐个删除；中途失败时批次只保留已删除节点并抛错，避免恢复产生重复）
   → store 乐观移除 + Toast「已删除 N 项 · 撤销」（8s）
-撤销 → 按原 parentId/index 重建（父文件夹已不存在则重建父链，兜底挂到「其他书签」）
+撤销 → 按原 parentId/index 重建（父文件夹已不存在则重建父链，兜底挂到「其他书签」；
+       恢复前 index 按目标文件夹当前子节点数收敛，规避 Chrome "Index out of bounds"；
+       恢复中断时补偿已创建节点并保留批次，可幂等重试）
 回收站面板 → 列出最近 20 批，支持单批恢复 / 彻底删除
 ```
 
@@ -431,6 +435,7 @@ Hello-Chrome-Extension/
 │  │  └─ cleaner/{pool.ts,deadLinks.ts,duplicates.ts,emptyFolders.ts,scan.ts}
 │  ├─ ui/
 │  │  ├─ styles.css
+│  │  ├─ download.ts popupStack.ts
 │  │  ├─ components/{Brand,SearchBox,ResultList,BookmarkCard,FolderSection,
 │  │  │   FolderPicker,TreeView,Toast,ConfirmDialog,Drawer,Progress,
 │  │  │   ThemeToggle,EmptyState,Skeleton,StatCard,TagEditor,VirtualList}.tsx
@@ -510,3 +515,14 @@ Hello-Chrome-Extension/
 - [ ] Playwright + 真实 Chrome 加载 `dist/`：首页、搜索、管理、清理主流程无控制台错误
 - [ ] 1280×800 与 1920×1080 视口无重叠/裁切/溢出；popup 360×560 正常
 - [ ] 无未实现按钮、无 TODO、无空 handler
+
+---
+
+## 13. 变更记录
+
+- **v1.1（2026-11-08）**：同步实现期行为变更——
+  1. omnibox 自由文本回车走默认搜索引擎兜底，不再当 URL 打开（`9bab856`，§3.2 已同步）；
+  2. 回收站删除/恢复语义补充：部分删除批次过滤、恢复 index 收敛（规避 Chrome "Index out of bounds"）、恢复中断补偿可重试（`9bab856`，§6.6 已同步）；
+  3. `SearchResult` 新增可选 `query` 字段供 web 兜底结构化传递（`9bab856`，§4 已同步）；
+  4. 目录结构补 `src/ui/download.ts`、`src/ui/popupStack.ts`（`9bab856` / `d31c8b5`，§8 已同步）。
+  除上述条目外 v1.0 内容不变。§4 Settings 数据模型与 §8 组件清单为设计期快照，与实现的既有演化偏差统一记录在 [代码质量评估与优化方案.md](./代码质量评估与优化方案.md)，不在本规范内逐条展开。
