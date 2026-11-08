@@ -115,6 +115,8 @@ export const store = createStore<AppStore>()((set, get) => ({
       const flat = flattenTree(tree);
       const folders = collectFolders(tree);
       const entries = await buildEntries(flat, get().settings.tags);
+      // O(选中) 清洗：Set 替代每选中项一次全量扫描
+      const existingIds = new Set<string>([...flat.map((item) => item.id), ...folders.map((folder) => folder.id)]);
       set({
         tree,
         flat,
@@ -123,7 +125,7 @@ export const store = createStore<AppStore>()((set, get) => ({
         totalCount: countBookmarks(tree),
         loading: false,
         error: null,
-        selectedIds: get().selectedIds.filter((id) => flat.some((item) => item.id === id) || folders.some((f) => f.id === id)),
+        selectedIds: get().selectedIds.filter((id) => existingIds.has(id)),
       });
       const query = get().query;
       if (query.trim()) await get().runSearch(query);
