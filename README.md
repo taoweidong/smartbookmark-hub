@@ -10,7 +10,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Manifest V3](https://img.shields.io/badge/Manifest%20V3-Chrome%20%E2%89%A5%20116-4285F4?logo=googlechrome&logoColor=white)](docs/SmartBookmark-Hub-技术方案.md)
-[![Tests](https://img.shields.io/badge/tests-175%20passing-brightgreen)](src)
+[![Tests](https://img.shields.io/badge/tests-255%20passing-brightgreen)](src)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](package.json)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg)](https://github.com/taoweidong/smartbookmark-hub/pulls)
 

@@ -40,5 +40,17 @@
     "typescript": "~5.9.3",
     "vite": "^8.3.6",
     "vitest": "^5.1.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/taoweidong/smartbookmark-hub.git"
+  },
+  "bugs": {
+    "url": "https://github.com/taoweidong/smartbookmark-hub/issues"
+  },
+  "homepage": "https://github.com/taoweidong/smartbookmark-hub#readme",
+  "engines": {
+    "node": ">=20"
   }
 }
