@@ -44,7 +44,7 @@ describe('parseSuggestionContent', () => {
     expect(parseSuggestionContent(`${WEB_PREFIX}你好`)).toEqual({ kind: 'web', text: '你好' });
     expect(parseSuggestionContent('https://a.com/')).toEqual({ kind: 'url', url: 'https://a.com/' });
     expect(parseSuggestionContent('自由输入的词')).toEqual({ kind: 'text', text: '自由输入的词' });
-    expect(parseSuggestionContent('chrome://extensions')).toEqual({ kind: 'text', text: 'chrome://extensions' });
+    expect(parseSuggestionContent('chrome://extensions')).toEqual({ kind: 'url', url: 'chrome://extensions' });
   });
 
   it('web 建议的 content 可无损还原查询词', () => {
@@ -57,5 +57,23 @@ describe('parseSuggestionContent', () => {
     const legacy: SearchResult = { kind: 'web', id: 'web', title: '在默认搜索引擎中搜索“旧数据”', url: '', subtitle: '', score: -1, matchedOn: '' };
     const [web] = toSuggestionsLatest([legacy]);
     expect(web.content).toBe(`${WEB_PREFIX}旧数据`);
+  });
+});
+describe('scheme 白名单（v2 R3b）', () => {
+  it('非 http scheme 的真实书签 URL 仍按 URL 打开', () => {
+    for (const url of [
+      'chrome://extensions/',
+      'chrome-extension://abc/newtab.html',
+      'file:///D:/docs/a.pdf',
+      'ftp://files.example.com/pub',
+      'about:blank',
+    ]) {
+      expect(parseSuggestionContent(url)).toEqual({ kind: 'url', url });
+    }
+  });
+
+  it('未知 scheme 或无 scheme 的自由文本仍走搜索兜底', () => {
+    expect(parseSuggestionContent('时间:2026年计划')).toEqual({ kind: 'text', text: '时间:2026年计划' });
+    expect(parseSuggestionContent('react 状态管理')).toEqual({ kind: 'text', text: 'react 状态管理' });
   });
 });

@@ -34,13 +34,17 @@ export function stripWebTitle(title: string): string {
   return title;
 }
 
+// 书签/历史里真实存在的可导航 scheme。注意 chrome:// 等书签经 toSuggestions
+// 进入 content 后必须按 URL 打开，而不是落入自由文本被拿去搜索（v2 R3b 回归修复）
+const NAVIGABLE_SCHEMES = /^(https?|chrome|chrome-extension|file|ftp|edge|about|view-source):/i;
+
 export function parseSuggestionContent(
   content: string,
 ): { kind: 'web'; text: string } | { kind: 'url'; url: string } | { kind: 'text'; text: string } {
   if (content.startsWith(WEB_PREFIX)) {
     return { kind: 'web', text: content.slice(WEB_PREFIX.length) };
   }
-  if (/^https?:\/\//i.test(content.trim())) {
+  if (NAVIGABLE_SCHEMES.test(content.trim())) {
     return { kind: 'url', url: content };
   }
   // 用户直接回车的自由文本：交给默认搜索引擎，而不是当 URL 打开
