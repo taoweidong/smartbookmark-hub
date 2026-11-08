@@ -300,6 +300,8 @@ try {
   await page.getByRole('slider', { name: '单条超时' }).fill('2000');
   await page.getByRole('slider', { name: '同域名间隔' }).fill('0');
   await page.getByRole('slider', { name: '并发请求数' }).fill('3');
+  // 滑杆为防抖提交（v2 R6e）：等 300ms 防抖 + 落盘后再开跑
+  await page.waitForTimeout(500);
   await page.getByRole('button', { name: '开始全面检测' }).first().click();
   await page.getByText(/检测完成：/).waitFor({ timeout: 60000 });
   await page.getByRole('tab', { name: /失效链接/ }).click();
