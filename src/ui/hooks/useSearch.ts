@@ -56,6 +56,7 @@ export function useSearch(initialQuery = ''): SearchController {
       if (timer.current) clearTimeout(timer.current);
       if (!value.trim()) return;
       timer.current = setTimeout(() => {
+        timer.current = null;
         void store.getState().runSearch(value);
       }, debounceMs);
     },
@@ -110,8 +111,23 @@ export function useSearch(initialQuery = ''): SearchController {
       }
       if (event.key === 'Enter') {
         event.preventDefault();
-        const target = list[activeIndex] ?? list[0];
-        if (target) void activate(target, event.ctrlKey || event.metaKey ? 'newTab' : 'current');
+        // 防抖已结束：按当前选中项打开
+        if (timer.current === null) {
+          const list = store.getState().results;
+          const target = list[activeIndex] ?? list[0];
+          if (target) void activate(target, event.ctrlKey || event.metaKey ? 'newTab' : 'current');
+          return;
+        }
+        // 防抖窗口内回车：先冲刷当前查询，再打开最新结果的首条，避免打开上一条查询的结果
+        clearTimeout(timer.current);
+        timer.current = null;
+        const withModifier = event.ctrlKey || event.metaKey;
+        void (async () => {
+          const query = store.getState().query.trim();
+          if (query) await store.getState().runSearch(query);
+          const target = store.getState().results[0];
+          if (target) await activate(target, withModifier ? 'newTab' : 'current');
+        })();
         return;
       }
       if (event.key === 'Escape') {

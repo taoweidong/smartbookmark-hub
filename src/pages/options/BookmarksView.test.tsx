@@ -133,3 +133,16 @@ describe('BookmarksView', () => {
     expect(store.getState().selectedIds).toEqual(['b1']);
   });
 });
+
+describe('选择范围一致性（v2 R5.3）', () => {
+  it('切换文件夹后清空选择，移动范围与可见行一致', () => {
+    seedStore();
+    render(<BookmarksView health={new Map()} onEdit={() => {}} requestConfirm={() => {}} />);
+
+    fireEvent.click(screen.getByLabelText('选择 项目看板'));
+    expect(store.getState().selectedIds).toEqual(['b1']);
+
+    fireEvent.click(screen.getByRole('treeitem', { name: /工作/ }));
+    expect(store.getState().selectedIds).toEqual([]);
+  });
+});

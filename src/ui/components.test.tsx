@@ -439,6 +439,23 @@ describe('SearchBox + useSearch', () => {
     }
   });
 
+  it('防抖窗口内回车先冲刷查询，打开当前结果（v2 R5.2）', async () => {
+    vi.useFakeTimers();
+    try {
+      seedEntries();
+      const openUrl = vi.spyOn(getBackend(), 'openUrl').mockResolvedValue(undefined);
+      render(<Harness />);
+      const input = screen.getByRole('combobox', { name: '全局搜索' });
+      fireEvent.change(input, { target: { value: '知乎' } });
+      fireEvent.keyDown(input, { key: 'Enter' }); // 300ms 防抖未到即回车
+      await act(async () => {});
+      expect(openUrl).toHaveBeenCalledTimes(1);
+      expect(openUrl.mock.calls[0][0]).toBe('https://www.zhihu.com/');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('初始查询词立即检索并打开面板', async () => {
     vi.useFakeTimers();
     try {

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   FolderPlus,
@@ -78,6 +78,12 @@ export function BookmarksView({
 
   const currentFolder = folders.find((folder) => folder.id === activeId) ?? folders[0];
   const folderId = currentFolder?.id ?? '1';
+
+  // 切换文件夹即清空选择：批量移动/删除的作用范围必须与可见行一致（v2 R5.3）
+  useEffect(() => {
+    store.getState().clearSelection();
+    lastClicked.current = null;
+  }, [folderId]);
 
   const rows = useMemo(() => {
     const source = recursive
