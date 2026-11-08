@@ -60,7 +60,13 @@ export function createDemoBackend(seed?: BookmarkNode[]): Backend {
       const store = (globalThis as { localStorage?: Storage }).localStorage;
       if (store) {
         const raw = store.getItem(key);
-        return raw ? (JSON.parse(raw) as T) : undefined;
+        if (raw === null) return undefined;
+        try {
+          return JSON.parse(raw) as T;
+        } catch {
+          // localStorage 被外部改坏时自愈为缺失，与 chrome.storage 语义对齐
+          return undefined;
+        }
       }
       return memory.get(key) as T | undefined;
     },

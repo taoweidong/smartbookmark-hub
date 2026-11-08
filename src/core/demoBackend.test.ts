@@ -415,3 +415,17 @@ describe('storage 与 onSettingsChanged', () => {
     expect(globalThis.localStorage).toBeTruthy();
   });
 });
+describe('storage 自愈（v2 R4.6）', () => {
+  it('localStorage 中损坏的 JSON 按缺失处理，不抛错', async () => {
+    localStorage.setItem('sbh:settings', '{broken json');
+    const backend = createDemoBackend();
+    expect(await backend.storageGet('sbh:settings')).toBeUndefined();
+  });
+
+  it('损坏数据被覆写后恢复正常读写', async () => {
+    localStorage.setItem('sbh:settings', '{broken');
+    const backend = createDemoBackend();
+    await backend.storageSet('sbh:settings', { theme: 'light' });
+    expect(await backend.storageGet<{ theme: string }>('sbh:settings')).toEqual({ theme: 'light' });
+  });
+});
