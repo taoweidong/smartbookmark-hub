@@ -89,19 +89,23 @@ export function DebouncedSlider({
 }: Omit<Parameters<typeof Slider>[0], 'onChange'> & { onCommit(value: number): void }) {
   const [local, setLocal] = useState(value);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const latest = useRef(value);
+  const pendingRef = useRef<number | null>(null);
+  const onCommitRef = useRef(onCommit);
+
+  useEffect(() => {
+    onCommitRef.current = onCommit;
+  });
 
   useEffect(() => {
     setLocal(value);
-    latest.current = value;
   }, [value]);
 
+  // 卸载时仅冲刷「尚未提交」的挂起值；已提交过的不重复写盘（v2 R6）
   useEffect(
     () => () => {
       if (timer.current) clearTimeout(timer.current);
-      if (latest.current !== value) onCommit(latest.current);
+      if (pendingRef.current !== null) onCommitRef.current(pendingRef.current);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
@@ -111,9 +115,13 @@ export function DebouncedSlider({
       value={local}
       onChange={(next) => {
         setLocal(next);
-        latest.current = next;
         if (timer.current) clearTimeout(timer.current);
-        timer.current = setTimeout(() => onCommit(next), 300);
+        pendingRef.current = next;
+        timer.current = setTimeout(() => {
+          timer.current = null;
+          pendingRef.current = null;
+          onCommitRef.current(next);
+        }, 300);
       }}
     />
   );

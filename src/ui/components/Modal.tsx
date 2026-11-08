@@ -15,6 +15,12 @@ interface ModalProps {
 
 export function Modal({ open, title, subtitle, onClose, children, footer, width = 520 }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  // 用 ref 持有 onClose：父组件的内联回调每次渲染都是新引用，
+  // 若进入 effect 依赖会导致弹层栈重排与焦点重抢（v2 R6）
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -22,7 +28,7 @@ export function Modal({ open, title, subtitle, onClose, children, footer, width 
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && isTopLayer(layerId)) {
         event.stopPropagation();
-        onClose();
+        onCloseRef.current();
       }
     };
     document.addEventListener('keydown', onKey);
@@ -34,7 +40,7 @@ export function Modal({ open, title, subtitle, onClose, children, footer, width 
       document.removeEventListener('keydown', onKey);
       popLayer(layerId);
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -90,6 +96,10 @@ export function ConfirmDialog({
 }) {
   if (!request) return null;
   const toneColor = { danger: 'var(--danger)', warn: 'var(--warn)', info: 'var(--info)' } as const;
+  const handleConfirm = (): void => {
+    void Promise.resolve(request.onConfirm()).catch(() => {});
+    onClose();
+  };
 
   return (
     <Modal
@@ -106,10 +116,7 @@ export function ConfirmDialog({
           <button
             type="button"
             className={`btn ${request.danger ? 'btn-danger' : 'btn-primary'}`}
-            onClick={() => {
-              void request.onConfirm();
-              onClose();
-            }}
+            onClick={handleConfirm}
           >
             {request.confirmLabel ?? '确认'}
           </button>

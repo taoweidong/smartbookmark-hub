@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { ChevronRight, Folder, FolderOpen, Bookmark as BookmarkIcon } from 'lucide-react';
 import type { BookmarkNode } from '@/core/types';
@@ -125,6 +125,19 @@ export function TreeView({
   const roots = useMemo(() => tree.find((node) => node.id === ROOT_ID)?.children ?? tree, [tree]);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(roots.map((node) => node.id)));
   const [dropId, setDropId] = useState<string | null>(null);
+  // tree 异步加载（挂载时为空）：新出现的根文件夹默认展开，已折叠的保持用户选择
+  const seenRoots = useRef<Set<string>>(new Set(roots.map((node) => node.id)));
+
+  useEffect(() => {
+    const fresh = roots.filter((node) => !seenRoots.current.has(node.id));
+    if (!fresh.length) return;
+    for (const node of fresh) seenRoots.current.add(node.id);
+    setExpanded((current) => {
+      const next = new Set(current);
+      for (const node of fresh) next.add(node.id);
+      return next;
+    });
+  }, [roots]);
 
   const toggle = (id: string) => {
     setExpanded((current) => {

@@ -12,11 +12,12 @@ import { TagEditor } from './components/TagEditor';
 import { FolderPicker } from './components/FolderPicker';
 import { ThemeToggle } from './components/ThemeToggle';
 import { Modal, ConfirmDialog } from './components/Modal';
+import { DebouncedSlider } from './components/Controls';
 import { EmptyState, Progress, StatTile } from './components/Feedback';
 import { Toasts } from './components/Toasts';
 import { Drawer } from './components/Drawer';
 import { TreeView, DRAG_MIME } from './components/TreeView';
-import { resetLayers } from './popupStack';
+import { layerCount, resetLayers } from './popupStack';
 import { useSearch, type SearchController } from './hooks/useSearch';
 import type { FolderInfo } from '@/core/bookmarks';
 
@@ -551,12 +552,74 @@ describe('TreeView', () => {
     expect(onDropInto).toHaveBeenCalledWith('b1', 'f1a');
   });
 
+  it('tree 异步加载后根文件夹默认展开（v2 R6）', () => {
+    const { rerender } = render(<TreeView tree={[]} activeId="" onSelect={() => {}} onDropInto={() => {}} />);
+    rerender(<TreeView tree={tree} activeId="" onSelect={() => {}} onDropInto={() => {}} />);
+    expect(screen.getByRole('treeitem', { name: /书签栏/ })).toHaveAttribute('aria-expanded', 'true');
+  });
+
   it('拖到自己身上不回调', () => {
     const { onDropInto } = setup();
     fireEvent.drop(screen.getByRole('treeitem', { name: /工作/ }), {
       dataTransfer: { getData: () => 'f1', types: [DRAG_MIME] },
     });
     expect(onDropInto).not.toHaveBeenCalled();
+  });
+});
+
+describe('DebouncedSlider 卸载语义（v2 R6）', () => {
+  it('定时器已提交后卸载不再重复提交', () => {
+    vi.useFakeTimers();
+    try {
+      const onCommit = vi.fn();
+      const { unmount } = render(
+        <DebouncedSlider label="测试滑杆" value={5} min={0} max={10} onCommit={onCommit} />,
+      );
+      fireEvent.change(screen.getByRole('slider', { name: '测试滑杆' }), { target: { value: 7 } });
+      vi.advanceTimersByTime(300);
+      expect(onCommit).toHaveBeenCalledTimes(1);
+      unmount();
+      expect(onCommit).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('卸载时仍有挂起的提交则冲刷一次', () => {
+    vi.useFakeTimers();
+    try {
+      const onCommit = vi.fn();
+      const { unmount } = render(
+        <DebouncedSlider label="冲刷滑杆" value={5} min={0} max={10} onCommit={onCommit} />,
+      );
+      fireEvent.change(screen.getByRole('slider', { name: '冲刷滑杆' }), { target: { value: 8 } });
+      unmount();
+      expect(onCommit).toHaveBeenCalledTimes(1);
+      expect(onCommit).toHaveBeenCalledWith(8);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('弹层栈稳定性（v2 R6）', () => {
+  it('父组件重渲染不重复压栈，也不重抢焦点', () => {
+    function Flaky({ tick }: { tick: number }) {
+      return (
+        <Modal open title={`弹窗${tick}`} onClose={() => {}}>
+          <input aria-label="弹层输入框" defaultValue={`v${tick}`} />
+        </Modal>
+      );
+    }
+    const { rerender } = render(<Flaky tick={0} />);
+    expect(layerCount()).toBe(1);
+    expect(document.activeElement).toBe(screen.getByLabelText('弹层输入框'));
+
+    (screen.getByLabelText('弹层输入框') as HTMLInputElement).blur();
+    rerender(<Flaky tick={1} />);
+    rerender(<Flaky tick={2} />);
+    expect(layerCount()).toBe(1);
+    expect(document.activeElement).not.toBe(screen.getByLabelText('弹层输入框'));
   });
 });
 
