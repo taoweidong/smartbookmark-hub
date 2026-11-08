@@ -207,3 +207,17 @@ describe('BackgroundLayer 组件', () => {
     expect(onError).not.toHaveBeenCalled();
   });
 });
+describe('换背景图 revision（v2 R5.1）', () => {
+  it('revision 变化触发重新加载背景图，无需刷新页面', async () => {
+    await cache.set(BACKGROUND_ASSET_KEY, 'data:image/jpeg;base64,OLD');
+    setBackground({ type: 'image', value: BACKGROUND_ASSET_KEY, revision: 1 });
+    const { rerender } = render(<BackgroundLayer />);
+    const layer = () => document.querySelector('div.fixed.inset-0.z-0')?.querySelector('div') as HTMLElement | null;
+    await waitFor(() => expect(layer()?.style.backgroundImage).toContain('OLD'));
+
+    await cache.set(BACKGROUND_ASSET_KEY, 'data:image/jpeg;base64,NEW');
+    setBackground({ type: 'image', value: BACKGROUND_ASSET_KEY, revision: 2 });
+    rerender(<BackgroundLayer />);
+    await waitFor(() => expect(layer()?.style.backgroundImage).toContain('NEW'));
+  });
+});

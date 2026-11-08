@@ -35,7 +35,7 @@ export function DisplayControls({ onPickFolders }: { onPickFolders(): void }) {
     if (!file) return;
     try {
       await storeBackgroundImage(file);
-      await patch({ background: { type: 'image', value: BACKGROUND_ASSET_KEY } });
+      await patch({ background: { type: 'image', value: BACKGROUND_ASSET_KEY, revision: Date.now() } });
       store.getState().pushToast({ message: '背景图已更新，仅保存在本机', tone: 'success' });
     } catch (error) {
       store.getState().pushToast({

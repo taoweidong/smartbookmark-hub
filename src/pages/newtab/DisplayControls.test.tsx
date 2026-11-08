@@ -219,7 +219,9 @@ describe('DisplayControls', () => {
       fireEvent.change(input, { target: { files: [pngFile()] } });
     });
 
-    await waitFor(() => expect(dashboard().background).toEqual({ type: 'image', value: BACKGROUND_ASSET_KEY }));
+    await waitFor(() => expect(dashboard().background.type).toBe('image'));
+    expect(dashboard().background.value).toBe(BACKGROUND_ASSET_KEY);
+    expect(typeof dashboard().background.revision).toBe('number');
     expect(await cache.get<string>(BACKGROUND_ASSET_KEY)).toBe(PNG_DATA_URL);
     expect(store.getState().toasts.at(-1)).toMatchObject({ message: '背景图已更新，仅保存在本机', tone: 'success' });
     expect((input as HTMLInputElement).value).toBe('');

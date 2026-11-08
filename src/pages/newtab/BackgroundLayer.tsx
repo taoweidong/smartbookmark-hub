@@ -58,13 +58,19 @@ export function BackgroundLayer() {
       return;
     }
     let alive = true;
-    void cache.get<string>(BACKGROUND_ASSET_KEY).then((value) => {
-      if (alive) setImage(value ?? '');
-    });
+    void cache
+      .get<string>(BACKGROUND_ASSET_KEY)
+      .then((value) => {
+        if (alive) setImage(value ?? '');
+      })
+      .catch(() => {
+        if (alive) setImage('');
+      });
+    // revision 随每次换图递增：同一 value（固定 asset key）也要重新读取
     return () => {
       alive = false;
     };
-  }, [background.type, background.value]);
+  }, [background.type, background.value, background.revision]);
 
   return (
     <>

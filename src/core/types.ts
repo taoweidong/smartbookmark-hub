@@ -66,7 +66,7 @@ export interface Settings {
     perFolder: number;
     showStats: boolean;
     seeded: boolean;
-    background: { type: 'aurora' | 'solid' | 'image'; value: string };
+    background: { type: 'aurora' | 'solid' | 'image'; value: string; revision?: number };
   };
   search: {
     includeHistory: boolean;
