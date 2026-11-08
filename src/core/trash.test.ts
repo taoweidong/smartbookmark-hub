@@ -216,3 +216,24 @@ describe('Chrome 语义边界（chromeMock）', () => {
     expect(flattenTree(tree).some((item) => item.title === '第一项')).toBe(false);
   });
 });
+describe('兜底父文件夹补偿与取树优化（v2 R4.3）', () => {
+  it('恢复中断时，ensureParent 重建的父文件夹也被补偿移除', async () => {
+    const folder = await bookmarkService.create({ parentId: '1', title: '重建父' });
+    const child = await bookmarkService.create({ parentId: folder.id, title: '孤儿', url: 'https://orphan2.example.com/' });
+    const batch = await deleteWithUndo([child.id], '删除孤儿2');
+    await getBackend().removeTree(folder.id);
+
+    const backend = getBackend();
+    const createOriginal = backend.create.bind(backend);
+    let calls = 0;
+    vi.spyOn(backend, 'create').mockImplementation(async (input) => {
+      calls += 1;
+      if (calls >= 2) throw new Error('模拟创建失败'); // 第 1 次：ensureParent 重建父；第 2 次：recreate 子节点
+      return createOriginal(input);
+    });
+
+    await expect(restoreBatch(batch.id)).rejects.toThrow('模拟创建失败');
+    const tree = await bookmarkService.getTree();
+    expect(JSON.stringify(tree).includes('重建父')).toBe(false);
+  });
+});

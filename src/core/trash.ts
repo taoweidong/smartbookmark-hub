@@ -106,9 +106,10 @@ export async function deleteWithUndo(ids: string[], label: string): Promise<Tras
 async function ensureParent(
   node: TrashNode,
   fallbackCounter: { value: number },
+  createdIds: string[],
+  treeRef: { current: BookmarkNode[] },
 ): Promise<string> {
-  const tree = await bookmarkService.getTree();
-  if (findNode(tree, node.parentId)) return node.parentId;
+  if (findNode(treeRef.current, node.parentId)) return node.parentId;
 
   let parentId = '2';
   let titles = node.parentTitles;
@@ -123,7 +124,7 @@ async function ensureParent(
   };
 
   if (titles.length) {
-    const anchor = findByTitle(tree, titles[0]);
+    const anchor = findByTitle(treeRef.current, titles[0]);
     if (anchor) {
       parentId = anchor.id;
       titles = titles.slice(1);
@@ -131,24 +132,30 @@ async function ensureParent(
   }
 
   for (const title of titles) {
-    const current = await bookmarkService.getTree();
-    const parent = findNode(current, parentId);
+    const parent = findNode(treeRef.current, parentId);
     const existing = parent?.children?.find((child) => !child.url && child.title === title);
     if (existing) {
       parentId = existing.id;
       continue;
     }
     const created = await bookmarkService.create({ parentId, title });
-    parentId = created.id;
+    // 兜底重建的文件夹同样登记进 createdIds：恢复中断时一并补偿，不留垃圾空文件夹
+    createdIds.push(created.id);
     fallbackCounter.value += 1;
+    treeRef.current = await bookmarkService.getTree();
+    parentId = created.id;
   }
   return parentId;
 }
 
-async function recreate(node: TrashNode, parentId: string, createdIds: string[]): Promise<number> {
+async function recreate(
+  node: TrashNode,
+  parentId: string,
+  createdIds: string[],
+  treeRef: { current: BookmarkNode[] },
+): Promise<number> {
   // Chrome 对越界 index 会报 "Index out of bounds"，恢复前按当前兄弟数量收敛
-  const tree = await bookmarkService.getTree();
-  const parent = findNode(tree, parentId);
+  const parent = findNode(treeRef.current, parentId);
   const index = Math.max(0, Math.min(node.index, parent?.children?.length ?? 0));
   const created = await bookmarkService.create({
     parentId,
@@ -157,9 +164,10 @@ async function recreate(node: TrashNode, parentId: string, createdIds: string[])
     url: node.url,
   });
   createdIds.push(created.id);
+  treeRef.current = await bookmarkService.getTree();
   let total = 1;
   for (const child of node.children ?? []) {
-    total += await recreate(child, created.id, createdIds);
+    total += await recreate(child, created.id, createdIds, treeRef);
   }
   return total;
 }
@@ -172,15 +180,17 @@ export async function restoreBatch(
 
   const fallbackCounter = { value: 0 };
   const createdIds: string[] = [];
+  // 共享一份树快照，创建后同步刷新：替代每节点一次全树读取
+  const treeRef = { current: await bookmarkService.getTree() };
   let restored = 0;
 
   try {
     for (const node of batch.nodes) {
-      const parentId = await ensureParent(node, fallbackCounter);
-      restored += await recreate(node, parentId, createdIds);
+      const parentId = await ensureParent(node, fallbackCounter, createdIds, treeRef);
+      restored += await recreate(node, parentId, createdIds, treeRef);
     }
   } catch (error) {
-    // 恢复中断：补偿已创建的节点，保留批次供用户重试（幂等）
+    // 恢复中断：补偿已创建的节点（含兜底重建的父文件夹），保留批次供用户重试（幂等）
     for (const id of createdIds) {
       await bookmarkService.remove(id).catch(() => {});
     }
