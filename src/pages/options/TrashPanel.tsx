@@ -16,7 +16,16 @@ export function TrashPanel({ requestConfirm }: { requestConfirm(request: Confirm
   const [openId, setOpenId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const reload = useCallback(async () => setBatches(await listTrash()), []);
+  const reload = useCallback(async () => {
+    try {
+      setBatches(await listTrash());
+    } catch (error) {
+      store.getState().pushToast({
+        message: error instanceof Error ? error.message : '回收站读取失败',
+        tone: 'danger',
+      });
+    }
+  }, []);
   useEffect(() => {
     void reload();
   }, [reload]);
@@ -63,9 +72,16 @@ export function TrashPanel({ requestConfirm }: { requestConfirm(request: Confirm
               confirmLabel: '永久清空',
               danger: true,
               async onConfirm() {
-                await purgeAll();
-                await reload();
-                store.getState().pushToast({ message: '回收站已清空', tone: 'info' });
+                try {
+                  await purgeAll();
+                  await reload();
+                  store.getState().pushToast({ message: '回收站已清空', tone: 'info' });
+                } catch (error) {
+                  store.getState().pushToast({
+                    message: error instanceof Error ? error.message : '清空失败',
+                    tone: 'danger',
+                  });
+                }
               },
             })
           }
@@ -116,8 +132,15 @@ export function TrashPanel({ requestConfirm }: { requestConfirm(request: Confirm
                           confirmLabel: '永久删除',
                           danger: true,
                           async onConfirm() {
-                            await purgeBatch(batch.id);
-                            await reload();
+                            try {
+                              await purgeBatch(batch.id);
+                              await reload();
+                            } catch (error) {
+                              store.getState().pushToast({
+                                message: error instanceof Error ? error.message : '删除失败',
+                                tone: 'danger',
+                              });
+                            }
                           },
                         })
                       }

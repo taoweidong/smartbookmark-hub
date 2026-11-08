@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 export function Switch({
@@ -77,6 +78,44 @@ export function Slider({
         style={{ ['--pct' as string]: `${pct}%` }}
       />
     </div>
+  );
+}
+
+// 拖动过程只在本地回显，停顿 300ms 才提交——避免每个 step 都读写一次 storage
+export function DebouncedSlider({
+  value,
+  onCommit,
+  ...rest
+}: Omit<Parameters<typeof Slider>[0], 'onChange'> & { onCommit(value: number): void }) {
+  const [local, setLocal] = useState(value);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latest = useRef(value);
+
+  useEffect(() => {
+    setLocal(value);
+    latest.current = value;
+  }, [value]);
+
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+      if (latest.current !== value) onCommit(latest.current);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  return (
+    <Slider
+      {...rest}
+      value={local}
+      onChange={(next) => {
+        setLocal(next);
+        latest.current = next;
+        if (timer.current) clearTimeout(timer.current);
+        timer.current = setTimeout(() => onCommit(next), 300);
+      }}
+    />
   );
 }
 

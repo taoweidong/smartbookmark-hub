@@ -89,9 +89,19 @@ export async function importHtml(
 }
 
 export function parseJsonBackup(text: string): { tree: BookmarkNode[]; tags: Record<string, string[]> } {
-  const data = JSON.parse(text) as { format?: string; tree?: BookmarkNode[]; tags?: Record<string, string[]> };
+  const data = JSON.parse(text) as { format?: string; tree?: BookmarkNode[]; tags?: unknown };
   if (data.format !== 'smartbookmark-hub' || !Array.isArray(data.tree)) {
     throw new Error('不是 SmartBookmark Hub 的 JSON 备份文件');
   }
-  return { tree: data.tree, tags: data.tags ?? {} };
+  // 标签必须严格是 string[]：损坏/手改的备份直接丢弃非法项，
+  // 防止脏数据持久化进 settings 后在 UI 中触发 TypeError（此前会造成启动白屏）
+  const tags: Record<string, string[]> = {};
+  if (data.tags && typeof data.tags === 'object') {
+    for (const [key, value] of Object.entries(data.tags as Record<string, unknown>)) {
+      if (Array.isArray(value) && value.length > 0 && value.every((tag) => typeof tag === 'string')) {
+        tags[key] = value;
+      }
+    }
+  }
+  return { tree: data.tree, tags };
 }

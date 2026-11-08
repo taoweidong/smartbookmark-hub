@@ -8,9 +8,10 @@ export function resolveTheme(mode: ThemeMode): 'light' | 'dark' {
 }
 
 export function applyTheme(mode: ThemeMode, accent: AccentName): void {
+  const resolved = resolveTheme(mode);
   const root = document.documentElement;
-  root.classList.toggle('light', resolveTheme(mode) === 'light');
-  root.classList.toggle('dark', resolveTheme(mode) === 'dark');
+  root.classList.toggle('light', resolved === 'light');
+  root.classList.toggle('dark', resolved === 'dark');
   root.dataset.accent = accent;
 }
 

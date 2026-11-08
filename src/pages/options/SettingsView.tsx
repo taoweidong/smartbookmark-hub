@@ -18,7 +18,7 @@ import { resetSettings } from '@/core/settings';
 import { cache, CACHE_PREFIX } from '@/core/cache';
 import { APP_NAME, OMNIBOX_KEYWORD } from '@/core/constants';
 import type { Settings, ThemeMode } from '@/core/types';
-import { Segmented, Slider, Switch } from '@/ui/components/Controls';
+import { Segmented, Switch, DebouncedSlider } from '@/ui/components/Controls';
 import { ACCENTS } from '@/ui/folderHue';
 import type { ConfirmRequest } from '@/ui/components/Modal';
 
@@ -52,7 +52,10 @@ export function SettingsView({ requestConfirm }: { requestConfirm(request: Confi
   const [granted, setGranted] = useState<boolean | null>(null);
 
   useEffect(() => {
-    void getBackend().hasHostPermission().then(setGranted);
+    getBackend()
+      .hasHostPermission()
+      .then(setGranted)
+      .catch(() => setGranted(false));
   }, []);
 
   const patchSearch = (value: Partial<Settings['search']>) => void store.getState().updateSettings({ search: value });
@@ -105,9 +108,9 @@ export function SettingsView({ requestConfirm }: { requestConfirm(request: Confi
             checked={settings.search.includeHistory}
             onChange={(value) => patchSearch({ includeHistory: value })}
           />
-          <Slider label="历史范围" value={settings.search.historyDays} min={7} max={365} step={1} onChange={(value) => patchSearch({ historyDays: value })} format={(value) => `${value} 天`} />
-          <Slider label="最多结果" value={settings.search.maxResults} min={10} max={60} step={5} onChange={(value) => patchSearch({ maxResults: value })} format={(value) => `${value} 条`} />
-          <Slider label="输入防抖" value={settings.search.debounceMs} min={0} max={800} step={50} onChange={(value) => patchSearch({ debounceMs: value })} format={(value) => `${value}ms`} />
+          <DebouncedSlider label="历史范围" value={settings.search.historyDays} min={7} max={365} step={1} onCommit={(value) => patchSearch({ historyDays: value })} format={(value) => `${value} 天`} />
+          <DebouncedSlider label="最多结果" value={settings.search.maxResults} min={10} max={60} step={5} onCommit={(value) => patchSearch({ maxResults: value })} format={(value) => `${value} 条`} />
+          <DebouncedSlider label="输入防抖" value={settings.search.debounceMs} min={0} max={800} step={50} onCommit={(value) => patchSearch({ debounceMs: value })} format={(value) => `${value}ms`} />
         </Block>
 
         <Block icon={<Keyboard size={14} />} title="快捷入口">
@@ -164,10 +167,13 @@ export function SettingsView({ requestConfirm }: { requestConfirm(request: Confi
                 type="button"
                 className="btn btn-sm ml-auto"
                 onClick={() => {
-                  void getBackend().removeHostPermission().then((ok) => {
-                    setGranted(!ok);
-                    store.getState().pushToast({ message: ok ? '已撤销网站访问权限' : '撤销失败', tone: ok ? 'info' : 'danger' });
-                  });
+                  getBackend()
+                    .removeHostPermission()
+                    .then((ok) => {
+                      setGranted(!ok);
+                      store.getState().pushToast({ message: ok ? '已撤销网站访问权限' : '撤销失败', tone: ok ? 'info' : 'danger' });
+                    })
+                    .catch(() => store.getState().pushToast({ message: '撤销权限失败', tone: 'danger' }));
                 }}
               >
                 撤销权限
@@ -177,10 +183,13 @@ export function SettingsView({ requestConfirm }: { requestConfirm(request: Confi
                 type="button"
                 className="btn btn-sm ml-auto"
                 onClick={() => {
-                  void getBackend().requestHostPermission().then((ok) => {
-                    setGranted(ok);
-                    store.getState().pushToast({ message: ok ? '已授予网站访问权限' : '未授予权限', tone: ok ? 'success' : 'warning' });
-                  });
+                  getBackend()
+                    .requestHostPermission()
+                    .then((ok) => {
+                      setGranted(ok);
+                      store.getState().pushToast({ message: ok ? '已授予网站访问权限' : '未授予权限', tone: ok ? 'success' : 'warning' });
+                    })
+                    .catch(() => store.getState().pushToast({ message: '申请权限失败', tone: 'danger' }));
                 }}
               >
                 授予权限
@@ -200,9 +209,16 @@ export function SettingsView({ requestConfirm }: { requestConfirm(request: Confi
                   description: '下次检测会重新请求所有链接，书签本身不受影响。',
                   confirmLabel: '清除缓存',
                   async onConfirm() {
-                    await cache.clear(CACHE_PREFIX.health);
-                    await cache.clear(CACHE_PREFIX.report);
-                    store.getState().pushToast({ message: '检测缓存已清除', tone: 'info' });
+                    try {
+                      await cache.clear(CACHE_PREFIX.health);
+                      await cache.clear(CACHE_PREFIX.report);
+                      store.getState().pushToast({ message: '检测缓存已清除', tone: 'info' });
+                    } catch (error) {
+                      store.getState().pushToast({
+                        message: error instanceof Error ? error.message : '清除缓存失败',
+                        tone: 'danger',
+                      });
+                    }
                   },
                 })
               }
@@ -220,10 +236,16 @@ export function SettingsView({ requestConfirm }: { requestConfirm(request: Confi
                   confirmLabel: '恢复默认',
                   danger: true,
                   async onConfirm() {
-                    const next = await resetSettings();
-                    store.setState({ settings: next });
-                    await store.getState().refresh();
-                    store.getState().pushToast({ message: '设置已恢复默认', tone: 'success' });
+                    try {
+                      const next = await resetSettings();
+                      store.setState({ settings: next });
+                      store.getState().pushToast({ message: '设置已恢复默认', tone: 'success' });
+                    } catch (error) {
+                      store.getState().pushToast({
+                        message: error instanceof Error ? error.message : '恢复默认失败',
+                        tone: 'danger',
+                      });
+                    }
                   },
                 })
               }

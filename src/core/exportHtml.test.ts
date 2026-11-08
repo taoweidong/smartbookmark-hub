@@ -114,3 +114,20 @@ describe('JSON 备份', () => {
     expect(() => parseJsonBackup('not json')).toThrow();
   });
 });
+describe('JSON 备份标签校验', () => {
+  it('丢弃形状非法的标签（防持久化脏数据）', () => {
+    const tree = [{ id: 'n1', title: '页', url: 'https://a.example.com/' }];
+    const broken = JSON.stringify({
+      format: 'smartbookmark-hub',
+      tree,
+      tags: { n1: 'not-an-array', n2: [1, 2], n3: [], n4: ['合法'] },
+    });
+    const parsed = parseJsonBackup(broken);
+    expect(parsed.tags).toEqual({ n4: ['合法'] });
+  });
+
+  it('缺失 tags 字段时返回空映射', () => {
+    const parsed = parseJsonBackup(JSON.stringify({ format: 'smartbookmark-hub', tree: [] }));
+    expect(parsed.tags).toEqual({});
+  });
+});

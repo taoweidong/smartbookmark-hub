@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ExternalLink, Save, Trash2, FolderInput, Link2, CalendarPlus, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { getBackend } from '@/core/backend';
 import { bookmarkService } from '@/core/bookmarks';
-import { loadSettings, setTags } from '@/core/settings';
+import { setTags } from '@/core/settings';
 import { store, useApp } from '@/core/store';
 import { formatDateTime } from '@/core/format';
 import { canonicalUrl, displayUrl, isHttpUrl } from '@/core/url';
@@ -84,8 +84,7 @@ export function BookmarkEditor({
           await bookmarkService.update(editing.id, { title: title.trim(), url: cleanUrl });
         }
         if (editing.parentId !== parentId) await bookmarkService.move(editing.id, { parentId });
-        await setTags(editing.id, tags);
-        store.setState({ settings: await loadSettings() });
+        store.setState({ settings: await setTags(editing.id, tags) });
       } else {
         const created = await bookmarkService.create({ parentId, title: title.trim(), url: cleanUrl });
         if (tags.length) {
@@ -130,7 +129,7 @@ export function BookmarkEditor({
                 打开
               </button>
               {onDelete && (
-                <button type="button" className="btn btn-danger ml-auto" onClick={() => onDelete(editing)}>
+                <button type="button" className="btn btn-danger ml-auto" disabled={saving} onClick={() => onDelete(editing)}>
                   <Trash2 size={13} aria-hidden="true" />
                   删除
                 </button>

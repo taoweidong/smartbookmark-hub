@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { X } from 'lucide-react';
+import { isTopLayer, popLayer, pushLayer } from '../popupStack';
 
 interface ModalProps {
   open: boolean;
@@ -17,8 +18,9 @@ export function Modal({ open, title, subtitle, onClose, children, footer, width 
 
   useEffect(() => {
     if (!open) return;
+    const layerId = pushLayer();
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && isTopLayer(layerId)) {
         event.stopPropagation();
         onClose();
       }
@@ -28,7 +30,10 @@ export function Modal({ open, title, subtitle, onClose, children, footer, width 
       'input, textarea, select, button:not([data-close])',
     );
     focusable?.focus();
-    return () => document.removeEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      popLayer(layerId);
+    };
   }, [open, onClose]);
 
   if (!open) return null;

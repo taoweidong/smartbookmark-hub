@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { X } from 'lucide-react';
+import { isTopLayer, popLayer, pushLayer } from '../popupStack';
 
 export function Drawer({
   open,
@@ -19,12 +20,23 @@ export function Drawer({
 }) {
   useEffect(() => {
     if (!open) return;
+    const layerId = pushLayer();
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape' && isTopLayer(layerId)) onClose();
     };
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      popLayer(layerId);
+    };
   }, [open, onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+    // 打开时聚焦面板，键盘用户可直接 Tab 遍历抽屉内容
+    const panel = document.querySelector<HTMLElement>('[role="dialog"][aria-modal="true"].drawer-in');
+    panel?.focus();
+  }, [open]);
 
   if (!open) return null;
 
@@ -40,7 +52,8 @@ export function Drawer({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="drawer-in flex h-full w-[400px] max-w-[92vw] flex-col border-l border-line bg-surface"
+        tabIndex={-1}
+        className="drawer-in flex h-full w-[400px] max-w-[92vw] flex-col border-l border-line bg-surface outline-none"
         style={{ boxShadow: '-24px 0 60px -30px rgba(0,0,0,0.9)' }}
       >
         <header className="flex items-start gap-3 border-b border-line px-4 py-3">

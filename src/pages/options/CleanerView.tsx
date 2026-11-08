@@ -56,6 +56,7 @@ export function CleanerView({
   const [tab, setTab] = useState<ReportTab>('dead');
   const [granted, setGranted] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
+  const startingRef = useRef(false);
 
   const reloadReports = useCallback(async () => {
     setReports(await listReports());
@@ -75,7 +76,9 @@ export function CleanerView({
   const patch = (value: Partial<Settings['scan']>) => void store.getState().updateSettings({ scan: value });
 
   const start = async (resume: boolean) => {
-    if (scanning) return;
+    // scanning 是异步 state，快速双击可能双开扫描；用同步 ref 兜底
+    if (scanning || startingRef.current) return;
+    startingRef.current = true;
     const controller = new AbortController();
     abortRef.current = controller;
     setScanning(true);
@@ -105,6 +108,7 @@ export function CleanerView({
     } finally {
       setScanning(false);
       abortRef.current = null;
+      startingRef.current = false;
     }
   };
 

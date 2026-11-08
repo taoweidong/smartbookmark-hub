@@ -159,11 +159,19 @@ export const store = createStore<AppStore>()((set, get) => ({
   },
 
   async updateSettings(patch) {
-    const next = await saveSettings(patch);
-    set({ settings: next });
-    if (patch.tags) {
-      const entries = await buildEntries(get().flat, next.tags);
-      set({ entries });
+    try {
+      const next = await saveSettings(patch);
+      set({ settings: next });
+      if (patch.tags) {
+        const entries = await buildEntries(get().flat, next.tags);
+        set({ entries });
+      }
+    } catch (error) {
+      // 所有调用方都是 void 触发：在这里统一兜底提示，避免设置保存失败静默
+      get().pushToast({
+        message: error instanceof Error ? error.message : '设置保存失败',
+        tone: 'danger',
+      });
     }
   },
 

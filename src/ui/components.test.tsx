@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import { FolderOpen } from 'lucide-react';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { BookmarkNode, FlatBookmark, SearchEntry, SearchResult } from '@/core/types';
 import { store } from '@/core/store';
 import { getBackend } from '@/core/backend';
@@ -13,13 +14,20 @@ import { ThemeToggle } from './components/ThemeToggle';
 import { Modal, ConfirmDialog } from './components/Modal';
 import { EmptyState, Progress, StatTile } from './components/Feedback';
 import { Toasts } from './components/Toasts';
+import { Drawer } from './components/Drawer';
 import { TreeView, DRAG_MIME } from './components/TreeView';
+import { resetLayers } from './popupStack';
 import { useSearch, type SearchController } from './hooks/useSearch';
 import type { FolderInfo } from '@/core/bookmarks';
 
 beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn();
   window.open = vi.fn();
+});
+
+afterEach(() => {
+  // 弹层栈是模块级状态，测试间必须复位
+  resetLayers();
 });
 
 function entry(over: Partial<SearchEntry>): SearchEntry {
@@ -532,5 +540,39 @@ describe('TreeView', () => {
       dataTransfer: { getData: () => 'f1', types: [DRAG_MIME] },
     });
     expect(onDropInto).not.toHaveBeenCalled();
+  });
+});
+
+describe('弹层栈：Escape 只关最顶层', () => {
+  function StackHarness() {
+    const [modalOpen, setModalOpen] = useState(true);
+    const [drawerOpen, setDrawerOpen] = useState(true);
+    return (
+      <>
+        {modalOpen && (
+          <Modal open title="底层弹窗" onClose={() => setModalOpen(false)}>
+            底层内容
+          </Modal>
+        )}
+        {drawerOpen && (
+          <Drawer open title="顶层抽屉" onClose={() => setDrawerOpen(false)}>
+            顶层内容
+          </Drawer>
+        )}
+      </>
+    );
+  }
+
+  it('Modal 与 Drawer 叠加时，Esc 先关 Drawer 再关 Modal', () => {
+    render(<StackHarness />);
+    expect(screen.getByText('底层内容')).toBeInTheDocument();
+    expect(screen.getByText('顶层内容')).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByText('顶层内容')).not.toBeInTheDocument();
+    expect(screen.getByText('底层内容')).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByText('底层内容')).not.toBeInTheDocument();
   });
 });

@@ -128,6 +128,15 @@ export function DisplayControls({ onPickFolders }: { onPickFolders(): void }) {
             <ImagePlus size={13} aria-hidden="true" />
           </button>
         )}
+        {dashboard.background.type === 'solid' && (
+          <input
+            type="color"
+            className="h-6 w-8 cursor-pointer border border-line-strong bg-bg"
+            aria-label="背景颜色"
+            value={dashboard.background.value || '#101731'}
+            onChange={(event) => void patch({ background: { type: 'solid', value: event.target.value } })}
+          />
+        )}
         <input
           ref={fileRef}
           type="file"

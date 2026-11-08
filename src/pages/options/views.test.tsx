@@ -11,6 +11,7 @@ import type { EditorTarget } from '@/ui/components/BookmarkEditor';
 import { BookmarkEditor } from '@/ui/components/BookmarkEditor';
 import { BackupView } from './BackupView';
 import { SettingsView } from './SettingsView';
+import { demoFetchFor } from './demoScan';
 import { TrashPanel } from './TrashPanel';
 
 beforeAll(() => {
@@ -244,5 +245,26 @@ describe('SettingsView', () => {
     await waitFor(() =>
       expect(store.getState().toasts.some((toast) => toast.message === '检测缓存已清除')).toBe(true),
     );
+  });
+});
+
+describe('demoScan', () => {
+  it('按主机名前缀分类状态码，公共站点不被误伤', async () => {
+    const fetchImpl = demoFetchFor([
+      { id: '1', title: '邮箱', url: 'https://mail.qq.com/', parentId: '1', folderPath: [], dateAdded: 0 },
+      { id: '2', title: 'Gmail', url: 'https://gmail.com/', parentId: '1', folderPath: [], dateAdded: 0 },
+      { id: '3', title: '死链', url: 'https://dead-link.example.com/', parentId: '1', folderPath: [], dateAdded: 0 },
+    ]);
+    expect((await fetchImpl('https://mail.qq.com/')).status).toBe(403);
+    expect((await fetchImpl('https://gmail.com/')).status).toBe(200);
+    expect((await fetchImpl('https://dead-link.example.com/')).status).toBe(404);
+  });
+
+  it('尊重取消信号，中止时拒绝请求', async () => {
+    const fetchImpl = demoFetchFor([]);
+    const controller = new AbortController();
+    const pending = fetchImpl('https://a.example.com/', { signal: controller.signal });
+    controller.abort();
+    await expect(pending).rejects.toThrow();
   });
 });

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { bookmarkService, flattenTree } from './bookmarks';
 import { buildEntries } from './search';
+import { getBackend } from './backend';
 import { store } from './store';
 
 async function seedEntries(count = 1): Promise<void> {
@@ -152,5 +153,19 @@ describe('store.setQuery', () => {
     store.getState().setQuery('');
     expect(store.getState().results).toEqual([]);
     expect(store.getState().searching).toBe(false);
+  });
+});
+
+describe('store.updateSettings 失败兜底', () => {
+  it('存储写入失败时推送危险 toast 且不向上抛出', async () => {
+    await store.getState().init();
+    const backend = getBackend();
+    const before = store.getState().settings.theme;
+    vi.spyOn(backend, 'storageSet').mockRejectedValueOnce(new Error('写入失败'));
+
+    await expect(store.getState().updateSettings({ theme: 'light' })).resolves.toBeUndefined();
+
+    expect(store.getState().toasts.some((toast) => toast.message === '写入失败')).toBe(true);
+    expect(store.getState().settings.theme).toBe(before);
   });
 });

@@ -4,6 +4,7 @@ import { store } from '@/core/store';
 import { collectFolders } from '@/core/bookmarks';
 import { defaultSettings } from '@/core/settings';
 import type { BookmarkNode } from '@/core/types';
+import { BackgroundLayer } from './BackgroundLayer';
 import { Dashboard } from './Dashboard';
 
 function seedTree(): BookmarkNode[] {
@@ -111,5 +112,26 @@ describe('makeTab', () => {
     expect(tab.name).toBe('娱乐');
     expect(tab.folderIds).toEqual([]);
     expect(tab.id).toMatch(/^tab_/);
+  });
+});
+
+describe('BackgroundLayer', () => {
+  it('solid 背景渲染自定义颜色，未选颜色时不渲染', () => {
+    const base = defaultSettings();
+    store.setState({ settings: { ...base, dashboard: { ...base.dashboard, background: { type: 'solid', value: '#223355' } } } });
+    const { rerender } = render(<BackgroundLayer />);
+    const layer = document.querySelector('div.fixed.inset-0.z-0') as HTMLElement | null;
+    expect(layer?.style.background).toContain('rgb(34, 51, 85)'); // #223355
+
+    store.setState({ settings: { ...base, dashboard: { ...base.dashboard, background: { type: 'solid', value: '' } } } });
+    rerender(<BackgroundLayer />);
+    expect(document.querySelector('div.fixed.inset-0.z-0')).toBeNull();
+  });
+
+  it('aurora 背景渲染极光层', () => {
+    const base = defaultSettings();
+    store.setState({ settings: { ...base, dashboard: { ...base.dashboard, background: { type: 'aurora', value: '' } } } });
+    render(<BackgroundLayer />);
+    expect(document.querySelector('.aurora-layer')).not.toBeNull();
   });
 });
