@@ -8,17 +8,24 @@ import { parseSuggestionContent, toSuggestions } from './suggestions';
 
 let cachedEntries: SearchEntry[] | null = null;
 let cachedTagsKey = '';
+// 书签事件递增：用于识别「索引构建期间书签已变化」的过期结果
+let entriesGeneration = 0;
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let requestToken = 0;
 
 async function getEntries(): Promise<SearchEntry[]> {
   const settings = await loadSettings();
   const tagsKey = JSON.stringify(settings.tags);
+  const generationAtStart = entriesGeneration;
   if (cachedEntries && cachedTagsKey === tagsKey) return cachedEntries;
   const tree = await getBackend().getTree();
-  cachedEntries = await buildEntries(flattenTree(tree), settings.tags);
-  cachedTagsKey = tagsKey;
-  return cachedEntries;
+  const built = await buildEntries(flattenTree(tree), settings.tags);
+  // 构建期间书签发生变化：结果只服务本次查询，不写入缓存（避免旧索引长期覆盖新数据）
+  if (generationAtStart === entriesGeneration) {
+    cachedEntries = built;
+    cachedTagsKey = tagsKey;
+  }
+  return built;
 }
 
 async function openHub(focusSearch: boolean, query?: string): Promise<void> {
@@ -77,14 +84,19 @@ chrome.omnibox.onInputChanged.addListener((text, suggest) => {
         suggest([]);
         return;
       }
-      const settings = await loadSettings();
-      const entries = await getEntries();
-      const results = await searchAll(entries, trimmed, {
-        includeHistory: settings.search.includeHistory,
-        historyDays: settings.search.historyDays,
-        limit: 8,
-      });
-      if (token === requestToken) suggest(toSuggestions(results));
+      try {
+        const settings = await loadSettings();
+        const entries = await getEntries();
+        const results = await searchAll(entries, trimmed, {
+          includeHistory: settings.search.includeHistory,
+          historyDays: settings.search.historyDays,
+          limit: 8,
+        });
+        if (token === requestToken) suggest(toSuggestions(results));
+      } catch {
+        // 建议链路任一环节失败：回空建议，绝不让 omnibox 卡死或产生 unhandled rejection
+        if (token === requestToken) suggest([]);
+      }
     })();
   }, 120);
 });
@@ -95,10 +107,10 @@ chrome.omnibox.onInputEntered.addListener((content, disposition) => {
   if (parsed.kind === 'web' || parsed.kind === 'text') {
     const text = parsed.text.trim();
     // 自由文本回车走默认搜索引擎兜底，绝不把原始文本当 URL 打开
-    if (text) void getBackend().webSearch(text, openDisposition);
+    if (text) void getBackend().webSearch(text, openDisposition).catch(() => {});
     return;
   }
-  void getBackend().openUrl(parsed.url, openDisposition);
+  void getBackend().openUrl(parsed.url, openDisposition).catch(() => {});
 });
 
 chrome.omnibox.onInputCancelled.addListener(() => {
@@ -146,6 +158,7 @@ for (const event of [
 ]) {
   event.addListener(() => {
     cachedEntries = null;
+    entriesGeneration += 1;
   });
 }
 

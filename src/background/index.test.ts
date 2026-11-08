@@ -362,4 +362,67 @@ describe('background service worker', () => {
       }
     });
   });
+
+describe('omnibox 健壮性与缓存代次（v2 R4.2）', () => {
+  const NEW_TREE: BookmarkNode[] = [
+    {
+      id: '0',
+      title: '',
+      children: [
+        {
+          id: '1',
+          title: '书签栏',
+          children: [
+            { id: 'b2', parentId: '1', title: '新站文章', url: 'https://new.example.com/post', dateAdded: 1 },
+          ],
+        },
+      ],
+    },
+  ];
+
+  it('建议链路异常时仍返回空建议，不产生 unhandled rejection', async () => {
+    await loadBackground();
+    mock.storage.local.get.mockRejectedValueOnce(new Error('存储故障'));
+    const suggest = await searchOnce('知乎问题');
+    expect(suggest).toHaveBeenCalledWith([]);
+  });
+
+  it('onInputEntered 打开失败时静默降级，不产生 unhandled rejection', async () => {
+    await loadBackground();
+    mock.tabs.query.mockImplementation(() => Promise.reject(new Error('tabs 故障')));
+    expect(() =>
+      mock.omnibox.onInputEntered.trigger('https://www.zhihu.com/q/1', 'currentTab'),
+    ).not.toThrow();
+    await flush();
+  });
+
+  it('构建期间书签变化，过期结果不写入缓存', async () => {
+    await loadBackground();
+
+    // getTree 挂起：让「读取 → 构建索引」横跨一次书签事件
+    let releaseTree!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      releaseTree = resolve;
+    });
+    mock.bookmarks.getTree.mockImplementation((cb: (tree: BookmarkNode[]) => void) => {
+      void gate.then(() => cb(structuredClone(TREE)));
+    });
+
+    const suggest = vi.fn();
+    mock.omnibox.onInputChanged.trigger('知乎问题', suggest);
+    await vi.advanceTimersByTimeAsync(120); // 防抖结束，构建开始并挂在 getTree 上
+
+    mock.bookmarks.onCreated.trigger('changed'); // 构建期间书签变化：作废缓存 + 代次 +1
+    releaseTree(); // 以事件前的旧树完成构建
+    await flush();
+
+    // 若实现把「事件前的旧树」构建结果写入了缓存，这里会沿用旧索引而非重建
+    mock.bookmarks.getTree.mockImplementation((cb: (tree: BookmarkNode[]) => void) =>
+      cb(structuredClone(NEW_TREE)),
+    );
+    const second = await searchOnce('新站文章');
+    const contents = (second.mock.calls[0]?.[0] as { content: string }[]).map((item) => item.content);
+    expect(contents).toContain('https://new.example.com/post');
+  });
+});
 });
