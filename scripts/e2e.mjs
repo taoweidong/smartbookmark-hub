@@ -188,6 +188,18 @@ try {
   check('导出含导入的书签', exported.includes('项目看板') && exported.includes(`${base}/gone`));
   check('导出含书签栏标记', exported.includes('PERSONAL_TOOLBAR_FOLDER="true"'));
 
+  // ---------- 首屏主题预设 ----------
+  process.stdout.write('\n[2.5] 首屏主题预设（theme-boot）\n');
+  // 模拟真实浅色用户：chrome.storage 有设置 + 本地有同步镜像
+  await sw.evaluate(() => chrome.storage.local.set({ 'sbh:settings': { theme: 'light' } }));
+  const themed = await context.newPage();
+  await themed.addInitScript(() => {
+    localStorage.setItem('sbh:theme', 'light');
+  });
+  await themed.goto(hub);
+  check('浅色用户首屏即 light，不闪深色', await themed.evaluate(() => document.documentElement.classList.contains('light')));
+  await themed.close();
+
   // ---------- 首页 ----------
   process.stdout.write('\n[3] 首页文件夹展示与页签\n');
   await page.goto(hub);
