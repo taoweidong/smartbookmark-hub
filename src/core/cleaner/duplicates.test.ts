@@ -133,3 +133,41 @@ describe('findDuplicates', () => {
     ).toEqual([]);
   });
 });
+describe('泛化标题守卫（v2 R3a）', () => {
+  it('首页/登录/Untitled 等泛化标题跨站不再成组', () => {
+    const groups = findDuplicates(
+      [
+        bm('a', '首页', 'https://portal-a.com/'),
+        bm('b', '首页', 'https://portal-b.com/'),
+        bm('c', '登录', 'https://sso-c.com/'),
+        bm('d', 'Untitled', 'https://d.com/page'),
+        bm('e', '新标签页', 'https://e.com/newtab'),
+      ],
+      opts,
+    );
+    expect(groups).toEqual([]);
+  });
+
+  it('过短标题（归一化后少于 4 字符）跨站不成组', () => {
+    expect(
+      findDuplicates([bm('a', '知乎', 'https://zha.com/'), bm('b', '知乎', 'https://zhb.com/')], opts),
+    ).toEqual([]);
+  });
+
+  it('同 host 的泛化标题仍按重复处理', () => {
+    const groups = findDuplicates(
+      [bm('a', '首页', 'https://x.com/home'), bm('b', '首页！', 'https://x.com/home2')],
+      opts,
+    );
+    expect(groups).toHaveLength(1);
+  });
+
+  it('具体标题（如「同一个教程」）跨站成组行为保持不变', () => {
+    const groups = findDuplicates(
+      [bm('a', '同一个教程', 'https://a.com/post'), bm('b', '同一个教程！', 'https://b.com/article')],
+      opts,
+    );
+    expect(groups).toHaveLength(1);
+    expect(groups[0].reason).toBe('title');
+  });
+});

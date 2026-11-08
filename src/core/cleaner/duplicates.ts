@@ -32,6 +32,39 @@ export function titleSimilarity(a: string, b: string): number {
   return Math.max(dice(bigrams(na), bigrams(nb)), dice(words(a), words(b)));
 }
 
+// 泛化标题（导航页/登录页/未命名等）跨站撞名率极高，参与跨站标题合并会把
+// 「首页 / 登录 / Untitled」合成一组并诱导一键删除。它们不进入 byTitle 桶；
+// 同 host 的泛化标题仍可经 byBlock + 相似度阈值正常成组。
+const GENERALIZED_TITLES = new Set([
+  'home',
+  'homepage',
+  'index',
+  'start',
+  'startpage',
+  'welcome',
+  'login',
+  'signin',
+  'signup',
+  'register',
+  'dashboard',
+  'untitled',
+  '未命名',
+  '新标签页',
+  'newtab',
+  '空白页',
+  '收藏夹',
+  '书签栏',
+  'bookmarks',
+  'bookmarksbar',
+  'favorites',
+  '首页',
+  '主页',
+]);
+
+function isGenericTitle(normalized: string): boolean {
+  return normalized.length < 4 || GENERALIZED_TITLES.has(normalized);
+}
+
 class UnionFind {
   private parent: number[];
 
@@ -92,6 +125,14 @@ export function findDuplicates(
   const canonicals = flat.map((item) => canonicalUrl(item.url, { ignoreWww: opts.ignoreWww }));
   const titles = flat.map((item) => normalizeTitle(item.title));
   const hosts = flat.map((item) => hostOf(item.url));
+  // 预计算 bigram/词集，避免桶内两两比较时重复归一化（结果与 titleSimilarity 完全一致）
+  const gramSets = titles.map((title) => bigrams(title));
+  const wordSets = flat.map((item) => words(item.title));
+  const similarityOf = (i: number, j: number): number => {
+    if (!titles[i] || !titles[j]) return 0;
+    if (titles[i] === titles[j]) return 1;
+    return Math.max(dice(gramSets[i], gramSets[j]), dice(wordSets[i], wordSets[j]));
+  };
 
   const byUrl = new Map<string, number[]>();
   const byTitle = new Map<string, number[]>();
@@ -106,13 +147,13 @@ export function findDuplicates(
 
   for (let i = 0; i < size; i += 1) {
     push(byUrl, canonicals[i], i);
-    push(byTitle, titles[i], i);
+    if (!isGenericTitle(titles[i])) push(byTitle, titles[i], i);
     push(byBlock, `${hosts[i]}|${titles[i].slice(0, 3)}`, i);
   }
 
   bucketUnion(byUrl, uf);
   bucketUnion(byTitle, uf);
-  bucketUnion(byBlock, uf, (a, b) => titleSimilarity(flat[a].title, flat[b].title) >= opts.titleThreshold);
+  bucketUnion(byBlock, uf, (a, b) => similarityOf(a, b) >= opts.titleThreshold);
 
   const components = new Map<number, number[]>();
   for (let i = 0; i < size; i += 1) {
@@ -140,16 +181,15 @@ export function findDuplicates(
     const uniqueTitles = new Set(members.map((member) => titles[member.index]));
 
     const reason: DuplicateGroup['reason'] = uniqueUrls.size === 1 ? 'url' : 'title';
+    let minSimilarity = 1;
+    for (const member of members.slice(1)) {
+      const value = similarityOf(keep.index, member.index);
+      if (value < minSimilarity) minSimilarity = value;
+    }
     const similarity =
       uniqueUrls.size === 1 || uniqueTitles.size === 1
         ? 1
-        : Math.round(
-            Math.min(
-              ...members
-                .slice(1)
-                .map((member) => titleSimilarity(flat[keep.index].title, flat[member.index].title)),
-            ) * 100,
-          ) / 100;
+        : Math.round(minSimilarity * 100) / 100;
 
     groups.push({
       key: reason === 'url' ? canonicals[keep.index] : titles[keep.index],
