@@ -1,8 +1,8 @@
 # SmartBookmark Hub 技术方案
 
-> 版本：v1.1 ｜ 日期：2026-11-08 ｜ 状态：已定稿，作为实现依据
+> 版本：v1.2 ｜ 日期：2026-11-09 ｜ 状态：已定稿，作为实现依据
 > 配套实施计划：[实施计划.md](./实施计划.md)
-> v1.1 变更同步说明见文末「13. 变更记录」。
+> 变更同步说明见文末「13. 变更记录」（v1.1 / v1.2）。
 
 ---
 
@@ -94,7 +94,7 @@
 
 ### 3.2 Service Worker 职责（`src/background/index.ts`）
 
-- `chrome.omnibox`：`onInputStarted` / `onInputChanged`（防抖 120ms，返回书签优先建议）/ `onInputEntered`（按 disposition 打开；未命中建议的自由文本回车时交给默认搜索引擎兜底，绝不把原始文本当 URL 打开）
+- `chrome.omnibox`：`onInputStarted` / `onInputChanged`（防抖 120ms，返回书签优先建议）/ `onInputEntered`（按 disposition 打开；可导航 scheme（http/https/chrome/file/ftp/about 等）的回车项按 URL 打开，其余自由文本交给默认搜索引擎兜底）
 - `chrome.commands.onCommand`：`open-hub`、`quick-search`
 - `chrome.contextMenus`：选中文字 → 「用 SmartBookmark Hub 搜索」；页面 → 「收藏到 SmartBookmark Hub」
 - `chrome.runtime.onMessage`：页面 ↔ SW 的薄消息路由（打开首页、请求 host 权限结果广播）
@@ -155,7 +155,7 @@ export interface Settings {
     layout: 'grid' | 'list';
     cardSize: 'sm' | 'md' | 'lg';
     showStats: boolean;
-    background: { type: 'aurora' | 'solid' | 'image'; value: string };
+    background: { type: 'aurora' | 'solid' | 'image'; value: string; revision?: number };  // revision 随换图递增，触发首屏/运行时重载
   };
   search: { includeHistory: boolean; historyDays: number; maxResults: number; debounceMs: number };
   scan: { concurrency: number; timeoutMs: number; hostDelayMs: number; cacheDays: number; ignoreWww: boolean };
@@ -183,7 +183,7 @@ export interface ScanReport {
   emptyFolders: { id: string; title: string; path: string[] }[];
   cursor: number;                            // 断点续扫
   cancelled: boolean;
-}
+  checkedIds?: string[];                     // 已检测（含 ok）的书签 id：续扫据此跳过，旧报告兼容
 
 export interface TrashBatch {
   id: string; deletedAt: number; label: string;
@@ -312,13 +312,13 @@ canonicalUrl(url, { ignoreWww }):
 | 非 http(s) | `skipped` | 直接跳过 |
 
 - **缓存**：结果按 canonicalUrl 存 IndexedDB，`cacheDays`（默认 7）内跳过；「强制重新检测」忽略缓存
-- **落盘**：每 25 条写一次进度与 `cursor`，页面关闭后可从 cursor 续扫
+- **落盘**：每 25 条写一次进度与 `cursor`，页面关闭后可从 cursor 续扫；`checkedIds` 记录已检测项（含 ok），续扫不再重复请求
 
 ### 6.4 重复检测（`core/cleaner/duplicates.ts`）
 
 1. **URL 重复**：`Map<canonicalUrl, FlatBookmark[]>`，长度 > 1 即成组，`reason:'url'`，`similarity:1`
 2. **标题重复**：
-   - 先按「归一化标题」（小写、去标点空白、全角转半角）精确分桶 → 跨 host 同标题组，`reason:'title'`
+   - 先按「归一化标题」（小写、去标点空白、全角转半角）精确分桶 → 跨 host 同标题组，`reason:'title'`；泛化标题（首页/登录/Untitled/新标签页等词表）与归一化后不足 4 字符的标题**不参与跨站合并**（同 host 仍可经前缀块+相似度成组），防止「首页」类撞名跨站误删
    - 再在**同 host 桶内**做字符 bigram Dice 相似度比较（阈值默认 0.86），避免全量 O(n²)
    - Dice = `2|A∩B| / (|A|+|B|)`，CJK 按字符 bigram，拉丁按词 + 字符 bigram 双通道取最大值
 3. **保留建议**：默认保留 `dateAdded` 最早者（原始收藏）；同时间则保留 canonicalUrl 更短者；用户可在预览中逐组改选
@@ -386,6 +386,7 @@ canonicalUrl(url, { ignoreWww }):
 ### 7.3 页面与布局
 
 **首页 `newtab.html`**
+- 首屏主题预设：三入口 HTML 在水合前经 `public/theme-boot.js` 同步应用主题（镜像 localStorage → chrome.storage 兜底），浅色用户不闪深色
 - 顶部固定命令栏：品牌手绘 SVG + 名称｜居中搜索胶囊（焦点鎏金环、`Ctrl K` 提示、书签/历史/网页范围 chips）｜右侧主题切换、文件夹选择、管理台入口
 - 问候条：时段问候 + 日期 + 四项真实统计（书签总数 / 文件夹数 / 近 7 天新增 / 链接健康度），数字用等宽字体
 - 页签条：用户自定义分组（工作/学习/娱乐…），可增删改名，每组独立选择文件夹
@@ -423,6 +424,7 @@ Hello-Chrome-Extension/
 │  └─ 实施计划.md
 ├─ public/
 │  ├─ manifest.json
+│  ├─ theme-boot.js            # 首屏主题预设（水合前同步应用）
 │  └─ icons/{icon16,icon32,icon48,icon128}.png
 ├─ newtab.html  popup.html  options.html
 ├─ src/
@@ -435,7 +437,7 @@ Hello-Chrome-Extension/
 │  │  └─ cleaner/{pool.ts,deadLinks.ts,duplicates.ts,emptyFolders.ts,scan.ts}
 │  ├─ ui/
 │  │  ├─ styles.css
-│  │  ├─ download.ts popupStack.ts
+│  │  ├─ download.ts popupStack.ts openWithFeedback.ts
 │  │  ├─ components/{Brand,SearchBox,ResultList,BookmarkCard,FolderSection,
 │  │  │   FolderPicker,TreeView,Toast,ConfirmDialog,Drawer,Progress,
 │  │  │   ThemeToggle,EmptyState,Skeleton,StatCard,TagEditor,VirtualList}.tsx
@@ -526,3 +528,10 @@ Hello-Chrome-Extension/
   3. `SearchResult` 新增可选 `query` 字段供 web 兜底结构化传递（`9bab856`，§4 已同步）；
   4. 目录结构补 `src/ui/download.ts`、`src/ui/popupStack.ts`（`9bab856` / `d31c8b5`，§8 已同步）。
   除上述条目外 v1.0 内容不变。§4 Settings 数据模型与 §8 组件清单为设计期快照，与实现的既有演化偏差统一记录在 [代码质量评估与优化方案.md](./代码质量评估与优化方案.md)，不在本规范内逐条展开。
+- **v1.2（2026-11-09）**：同步第二轮优化（R0-R7）行为变更——
+  1. 重复检测新增泛化/短标题守卫：泛化词表与归一化 <4 字符标题不参与跨站合并（`4590bf7`，§6.4 已同步）；
+  2. omnibox 精化 scheme 白名单：可导航 scheme 打开、其余自由文本走搜索兜底（`46a65ab`，§3.2 精化 v1.1 表述）；
+  3. `ScanReport` 新增可选 `checkedIds`：续扫跳过已检测 ok 项（`296cfb6`，§4/§6.3 已同步）；
+  4. `Settings.dashboard.background` 新增可选 `revision`：换背景图即时生效（`3075030`，§4 已同步）；
+  5. 首屏主题预设 `public/theme-boot.js`：三入口水合前同步应用主题（`332c48c`，§7.3/§8 已同步）；
+  6. 目录结构补 `src/ui/openWithFeedback.ts`（`0e5e7e4`，§8 已同步）；Backend 接口新增 `openHub(focusSearch)`，UI 层 `chrome.*` 直调归零（同 commit）。

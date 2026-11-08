@@ -11,7 +11,7 @@
 [![CI](https://github.com/taoweidong/smartbookmark-hub/actions/workflows/ci.yml/badge.svg)](https://github.com/taoweidong/smartbookmark-hub/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Manifest V3](https://img.shields.io/badge/Manifest%20V3-Chrome%20%E2%89%A5%20116-4285F4?logo=googlechrome&logoColor=white)](docs/SmartBookmark-Hub-技术方案.md)
-[![Tests](https://img.shields.io/badge/tests-511%20passing-brightgreen)](src)
+[![Tests](https://img.shields.io/badge/tests-515%20passing-brightgreen)](src)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](package.json)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg)](https://github.com/taoweidong/smartbookmark-hub/pulls)
 
@@ -33,7 +33,7 @@
   按你勾选的原生文件夹分区展示书签卡片；多页签（工作 / 学习 / 娱乐…）独立配置文件夹；网格 / 列表布局、三档卡片尺寸、四色主题强调、亮暗模式与自定义背景；问候条展示书签总数、近 7 天新增与链接健康度。
 
 - **🔎 书签优先的全局搜索**
-  三个入口共用同一引擎：地址栏关键字 `bm`、页面内搜索胶囊（`Ctrl/⌘ + K`）、工具栏弹窗。排序恒定 **书签 → 历史 → 网页**，支持中文、拼音首字母（`zh` → 知乎）、全拼（`zhifu`）、URL 片段与标签模糊匹配；↑↓ 选择、Enter 打开、Ctrl+Enter 新标签、Esc 关闭；地址栏对未命中建议的自由文本直接回车，会交给浏览器默认搜索引擎兜底（绝不把原始文本当 URL 打开）。
+  三个入口共用同一引擎：地址栏关键字 `bm`、页面内搜索胶囊（`Ctrl/⌘ + K`）、工具栏弹窗。排序恒定 **书签 → 历史 → 网页**，支持中文、拼音首字母（`zh` → 知乎）、全拼（`zhifu`）、URL 片段与标签模糊匹配；↑↓ 选择、Enter 打开、Ctrl+Enter 新标签、Esc 关闭；地址栏回车项按 scheme 识别：可导航 scheme（http/https/chrome/file/ftp/about 等）直接打开，其余自由文本交给浏览器默认搜索引擎兜底。
 
 - **🗂 书签管理台**
   树形浏览、新建 / 重命名 / 拖拽移动（拖到文件夹移动、拖到行内调序）、Shift 范围批量选择、标签管理、按链接状态筛选——所有改动实时同步到 Chrome 原生书签栏。
@@ -86,8 +86,9 @@ npm install            # Node 20+，无需额外全局依赖
 npm run dev            # 网页预览（Demo 数据）
 npm run build          # 构建扩展产物到 dist/
 npm run typecheck      # TypeScript 严格类型检查
-npm run test           # Vitest 单元 + 组件测试（511 例）
-npm run e2e            # Playwright 驱动真实 Chromium 的端到端验证（37 项断言）
+npm run test           # Vitest 单元 + 组件测试（515 例）
+npm run test:coverage  # Vitest 覆盖率报告（v8，输出 coverage/）
+npm run e2e            # Playwright 驱动真实 Chromium 的端到端验证（38 项断言）
 npm run package        # 打包 dist/ 为 zip
 npm run icons          # 重新生成品牌图标
 ```
