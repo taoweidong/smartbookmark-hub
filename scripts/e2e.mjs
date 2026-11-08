@@ -191,13 +191,27 @@ try {
   // ---------- 首屏主题预设 ----------
   process.stdout.write('\n[2.5] 首屏主题预设（theme-boot）\n');
   // 模拟真实浅色用户：chrome.storage 有设置 + 本地有同步镜像
-  await sw.evaluate(() => chrome.storage.local.set({ 'sbh:settings': { theme: 'light' } }));
+  // （SW 会空闲终止，长句柄 evaluate 不可靠；改用存活的主页面写存储）
+  await page.evaluate(async () => {
+    const current = await chrome.storage.local.get('sbh:settings');
+    const settings = current['sbh:settings'] ?? {};
+    await chrome.storage.local.set({ 'sbh:settings': { ...settings, theme: 'light' } });
+  });
+  process.stdout.write('seed readback: ' + JSON.stringify(await page.evaluate(() => chrome.storage.local.get('sbh:settings'))) + String.fromCharCode(10));
   const themed = await context.newPage();
   await themed.addInitScript(() => {
     localStorage.setItem('sbh:theme', 'light');
   });
   await themed.goto(hub);
-  check('浅色用户首屏即 light，不闪深色', await themed.evaluate(() => document.documentElement.classList.contains('light')));
+  const bootState = await themed.evaluate(async () => {
+    const stored = await chrome.storage.local.get('sbh:settings');
+    return {
+      cls: document.documentElement.className,
+      mirror: localStorage.getItem('sbh:theme'),
+      storedTheme: stored['sbh:settings']?.theme ?? null,
+    };
+  });
+  check('浅色用户首屏即 light，不闪深色', bootState.cls.includes('light'), JSON.stringify(bootState));
   await themed.close();
 
   // ---------- 首页 ----------
