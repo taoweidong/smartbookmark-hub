@@ -112,3 +112,37 @@ describe('setTags', () => {
     expect(Object.keys(tags)).toHaveLength(0);
   });
 });
+
+describe('settings 形状防御（v2 R4.7）', () => {
+  it('dashboard.tabs 等非法形状回退默认，不产生白屏', async () => {
+    await getBackend().storageSet(SETTINGS_KEY, {
+      dashboard: { tabs: null, activeTabId: 'ghost', background: { type: 'image' } },
+      tags: 'not-object',
+      recentQueries: 'not-array',
+    });
+    const settings = await loadSettings();
+    expect(Array.isArray(settings.dashboard.tabs)).toBe(true);
+    expect(settings.dashboard.tabs.length).toBeGreaterThan(0);
+    expect(settings.dashboard.tabs.some((tab) => tab.id === settings.dashboard.activeTabId)).toBe(true);
+    expect(['aurora', 'solid', 'image']).toContain(settings.dashboard.background.type);
+    expect(settings.tags).toEqual({});
+    expect(settings.recentQueries).toEqual([]);
+  });
+
+  it('tabs 内单个非法元素被剔除，合法项保留', async () => {
+    await getBackend().storageSet(SETTINGS_KEY, {
+      dashboard: {
+        tabs: [
+          { id: 't1', name: '工作', folderIds: ['1'] },
+          null,
+          { id: 't2' },
+          { id: 't3', name: '学习', folderIds: 'bad' },
+        ],
+        activeTabId: 't1',
+      },
+    });
+    const settings = await loadSettings();
+    expect(settings.dashboard.tabs.map((tab) => tab.id)).toEqual(['t1']);
+    expect(settings.dashboard.activeTabId).toBe('t1');
+  });
+});

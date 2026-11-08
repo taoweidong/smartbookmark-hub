@@ -64,7 +64,47 @@ export function mergeSettings(base: Settings, patch: SettingsPatch): Settings {
 function normalize(raw: unknown): Settings {
   const base = defaultSettings();
   if (!raw || typeof raw !== 'object') return base;
-  return mergeSettings(base, raw as SettingsPatch);
+  const next = mergeSettings(base, raw as SettingsPatch);
+
+  // 形状防御：storage 被手改或旧损坏备份写入非法结构时回退默认，防 UI 白屏（v2 R4.7）
+  const tabs = Array.isArray(next.dashboard.tabs)
+    ? next.dashboard.tabs.filter(
+        (tab) =>
+          !!tab &&
+          typeof tab === 'object' &&
+          typeof tab.id === 'string' &&
+          typeof tab.name === 'string' &&
+          Array.isArray(tab.folderIds) &&
+          tab.folderIds.every((id) => typeof id === 'string'),
+      )
+    : [];
+  next.dashboard.tabs = tabs.length ? tabs : base.dashboard.tabs;
+  if (!next.dashboard.tabs.some((tab) => tab.id === next.dashboard.activeTabId)) {
+    next.dashboard.activeTabId = next.dashboard.tabs[0].id;
+  }
+  const background = next.dashboard.background as unknown;
+  if (
+    !background ||
+    typeof background !== 'object' ||
+    !['aurora', 'solid', 'image'].includes((background as { type?: string }).type ?? '')
+  ) {
+    next.dashboard.background = base.dashboard.background;
+  }
+
+  const tags: Record<string, string[]> = {};
+  if (next.tags && typeof next.tags === 'object') {
+    for (const [key, value] of Object.entries(next.tags)) {
+      if (Array.isArray(value) && value.length > 0 && value.every((tag) => typeof tag === 'string')) {
+        tags[key] = value;
+      }
+    }
+  }
+  next.tags = tags;
+
+  next.recentQueries = Array.isArray(next.recentQueries)
+    ? next.recentQueries.filter((query) => typeof query === 'string')
+    : [];
+  return next;
 }
 
 export async function loadSettings(): Promise<Settings> {
