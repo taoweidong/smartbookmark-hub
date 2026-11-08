@@ -26,6 +26,9 @@ export interface SearchEntry extends FlatBookmark {
   initials: string;
   pinyinFull: string;
   tags: string[];
+  /** 预计算的小写字段，避免查询时反复分配 */
+  folderLower: string;
+  tagLowers: string[];
 }
 
 export type ResultKind = 'bookmark' | 'history' | 'web';

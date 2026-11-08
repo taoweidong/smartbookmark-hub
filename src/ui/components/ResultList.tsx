@@ -52,6 +52,9 @@ export function ResultList({
     node?.scrollIntoView({ block: 'nearest' });
   }, [activeIndex]);
 
+  const kindCounts = new Map<string, number>();
+  for (const item of results) kindCounts.set(item.kind, (kindCounts.get(item.kind) ?? 0) + 1);
+
   let lastKind = '';
 
   return (
@@ -70,9 +73,7 @@ export function ResultList({
                 <span className="text-[10.5px] font-bold tracking-[0.06em]" style={{ color: group.color }}>
                   {group.label}
                 </span>
-                <span className="mono text-[10.5px] text-text-faint">
-                  {results.filter((item) => item.kind === result.kind).length}
-                </span>
+                <span className="mono text-[10.5px] text-text-faint">{kindCounts.get(result.kind)}</span>
                 <span className="ml-1 h-px flex-1" style={{ background: 'var(--line)' }} aria-hidden="true" />
               </div>
             )}

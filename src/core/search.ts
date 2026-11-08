@@ -12,6 +12,7 @@ export async function buildEntries(
   const out: SearchEntry[] = [];
   for (let i = 0; i < flat.length; i += 1) {
     const item = flat[i];
+    const itemTags = tags[item.id] ?? [];
     out.push({
       ...item,
       host: hostOf(item.url),
@@ -20,7 +21,9 @@ export async function buildEntries(
       urlLower: item.url.toLowerCase(),
       initials: toInitials(item.title),
       pinyinFull: toFullPinyin(item.title),
-      tags: tags[item.id] ?? [],
+      tags: itemTags,
+      folderLower: item.folderPath.join('/').toLowerCase(),
+      tagLowers: itemTags.map((tag) => tag.toLowerCase()),
     });
     if ((i + 1) % CHUNK_SIZE === 0) await yieldToBrowser();
   }
@@ -61,10 +64,9 @@ function scoreTerm(entry: SearchEntry, term: string): TermHit | null {
   else if (entry.host.startsWith(term)) consider(30, '域名');
 
   if (entry.urlLower.includes(term)) consider(25, 'URL');
-  if (entry.folderPath.some((part) => part.toLowerCase().includes(term))) consider(15, '文件夹');
+  if (entry.folderLower.includes(term)) consider(15, '文件夹');
 
-  for (const tag of entry.tags) {
-    const lower = tag.toLowerCase();
+  for (const lower of entry.tagLowers) {
     if (lower === term) consider(70, '标签');
     else if (lower.includes(term)) consider(40, '标签');
   }

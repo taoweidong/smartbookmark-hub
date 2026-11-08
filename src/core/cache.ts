@@ -1,4 +1,4 @@
-import { createStore, del, get, keys, set, type UseStore } from 'idb-keyval';
+import { createStore, del, get, getMany, keys, set, type UseStore } from 'idb-keyval';
 import { DB_NAME } from './constants';
 
 let idb: UseStore | null = null;
@@ -49,11 +49,22 @@ export const cache = {
   },
 
   async entries<T>(prefix: string): Promise<[string, T][]> {
-    const found = await cache.keys(prefix);
+    const db = store();
+    if (db) {
+      // 一次 keys + 一次 getMany，避免逐 key 读取
+      const all = (await keys(db)) as string[];
+      const found = all.filter((key) => key.startsWith(prefix));
+      const values = (await getMany<T>(found, db)) as (T | undefined)[];
+      const out: [string, T][] = [];
+      for (let i = 0; i < found.length; i += 1) {
+        const value = values[i];
+        if (value !== undefined) out.push([found[i], value]);
+      }
+      return out;
+    }
     const out: [string, T][] = [];
-    for (const key of found) {
-      const value = await cache.get<T>(key);
-      if (value !== undefined) out.push([key, value]);
+    for (const [key, raw] of mem()) {
+      if (key.startsWith(prefix)) out.push([key, structuredClone(raw) as T]);
     }
     return out;
   },
