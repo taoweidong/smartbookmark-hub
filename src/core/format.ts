@@ -1,12 +1,12 @@
 export function formatDate(ts: number): string {
-  if (!ts) return '—';
+  if (!Number.isFinite(ts) || !ts) return '—';
   const d = new Date(ts);
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 export function formatDateTime(ts: number): string {
-  if (!ts) return '—';
+  if (!Number.isFinite(ts) || !ts) return '—';
   const d = new Date(ts);
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${formatDate(ts)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -61,7 +61,10 @@ export function escapeXml(value: string): string {
 }
 
 export function truncate(value: string, max: number): string {
-  return value.length > max ? `${value.slice(0, max)}…` : value;
+  // 按码点截断，避免把 emoji / 生僻字的代理对切成乱码
+  const chars = Array.from(value);
+  if (chars.length <= max) return value;
+  return `${chars.slice(0, max).join('')}…`;
 }
 
 export function uid(prefix = 'id'): string {

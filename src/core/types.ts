@@ -41,6 +41,8 @@ export interface SearchResult {
   subtitle: string;
   score: number;
   matchedOn: string;
+  /** kind === 'web' 时携带原始查询词，避免 UI 层从标题文案反解 */
+  query?: string;
 }
 
 export type ThemeMode = 'light' | 'dark' | 'system';

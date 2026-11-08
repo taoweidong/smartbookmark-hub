@@ -54,11 +54,13 @@ async function registerMenus(): Promise<void> {
   });
 }
 
+// 默认建议不随 SW 持久化：必须在每次 Service Worker 启动时（模块顶层）设置
+chrome.omnibox.setDefaultSuggestion({
+  description: `在 ${APP_NAME} 中搜索书签（优先）与历史 · 输入关键词开始`,
+});
+
 chrome.runtime.onInstalled.addListener(() => {
   void registerMenus();
-  chrome.omnibox.setDefaultSuggestion({
-    description: `在 ${APP_NAME} 中搜索书签（优先）与历史 · 输入关键词开始`,
-  });
 });
 
 chrome.runtime.onStartup.addListener(() => {
@@ -90,11 +92,13 @@ chrome.omnibox.onInputChanged.addListener((text, suggest) => {
 chrome.omnibox.onInputEntered.addListener((content, disposition) => {
   const parsed = parseSuggestionContent(content);
   const openDisposition = disposition === 'currentTab' ? 'current' : 'newTab';
-  if (parsed.kind === 'web') {
-    void getBackend().webSearch(parsed.text, openDisposition);
+  if (parsed.kind === 'web' || parsed.kind === 'text') {
+    const text = parsed.text.trim();
+    // 自由文本回车走默认搜索引擎兜底，绝不把原始文本当 URL 打开
+    if (text) void getBackend().webSearch(text, openDisposition);
     return;
   }
-  if (parsed.url) void getBackend().openUrl(parsed.url, openDisposition);
+  void getBackend().openUrl(parsed.url, openDisposition);
 });
 
 chrome.omnibox.onInputCancelled.addListener(() => {
@@ -118,11 +122,17 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   }
   if (info.menuItemId === 'sbh-save-page' && tab?.url) {
     void (async () => {
-      await getBackend().create({ parentId: '1', title: tab.title || tab.url!, url: tab.url });
-      cachedEntries = null;
-      await chrome.action.setBadgeText({ text: '＋' });
-      await chrome.action.setBadgeBackgroundColor({ color: '#F2B33D' });
-      setTimeout(() => void chrome.action.setBadgeText({ text: '' }), 2500);
+      try {
+        await getBackend().create({ parentId: '1', title: tab.title || tab.url!, url: tab.url });
+        cachedEntries = null;
+        await chrome.action.setBadgeText({ text: '＋' });
+        await chrome.action.setBadgeBackgroundColor({ color: '#F2B33D' });
+        setTimeout(() => void chrome.action.setBadgeText({ text: '' }), 2500);
+      } catch {
+        await chrome.action.setBadgeText({ text: '!' });
+        await chrome.action.setBadgeBackgroundColor({ color: '#FF6B6B' });
+        setTimeout(() => void chrome.action.setBadgeText({ text: '' }), 2500);
+      }
     })();
   }
 });
@@ -141,7 +151,9 @@ for (const event of [
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === 'sbh:open-hub') {
-    void openHub(Boolean(message.focusSearch), message.query).then(() => sendResponse({ ok: true }));
+    void openHub(Boolean(message.focusSearch), message.query)
+      .then(() => sendResponse({ ok: true }))
+      .catch(() => sendResponse({ ok: false }));
     return true;
   }
   if (message?.type === 'sbh:invalidate') {

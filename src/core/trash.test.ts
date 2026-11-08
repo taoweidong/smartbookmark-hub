@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { getBackend } from './backend';
-import { bookmarkService, findNode } from './bookmarks';
+import { getBackend, setBackend } from './backend';
+import { bookmarkService, findNode, flattenTree } from './bookmarks';
+import { CACHE_PREFIX, cache } from './cache';
+import { createChromeLikeBackend } from '@/test/chromeMock';
 import { deleteWithUndo, listTrash, purgeAll, purgeBatch, restoreBatch, snapshotNodes } from './trash';
+import type { BookmarkNode, TrashBatch } from './types';
 
 describe('snapshotNodes', () => {
   it('文件夹快照包含完整子树与父级路径', async () => {
@@ -133,5 +136,83 @@ describe('listTrash 排序', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('Chrome 语义边界（chromeMock）', () => {
+  const chromeTree = (): BookmarkNode[] => [
+    { id: '0', title: '', children: [{ id: '1', title: '书签栏', children: [] }] },
+  ];
+
+  it('恢复时越界 index 被 clamp，不再触发 Index out of bounds', async () => {
+    setBackend(createChromeLikeBackend(chromeTree()));
+    const batch: TrashBatch = {
+      id: 't-oob',
+      deletedAt: Date.now(),
+      label: '越界恢复',
+      nodes: [
+        {
+          id: 'old-1',
+          title: '页面',
+          url: 'https://x.example.com/',
+          parentId: '1',
+          parentTitles: ['书签栏'],
+          index: 5,
+        },
+      ],
+    };
+    await cache.set(CACHE_PREFIX.trash + batch.id, batch);
+
+    const result = await restoreBatch(batch.id);
+    expect(result.restored).toBe(1);
+    const tree = await getBackend().getTree();
+    const restored = tree[0].children![0].children![0];
+    expect(restored.title).toBe('页面');
+    expect(await listTrash()).toHaveLength(0);
+  });
+
+  it('删除中途失败：批次只保留已删除节点，失败节点不入回收站', async () => {
+    const a = await bookmarkService.create({ parentId: '1', title: '会成功', url: 'https://ok.example.com/' });
+    const b = await bookmarkService.create({ parentId: '1', title: '会失败', url: 'https://fail.example.com/' });
+    const backend = getBackend();
+    const removeOriginal = backend.remove.bind(backend);
+    vi.spyOn(backend, 'remove').mockImplementation(async (id: string) => {
+      if (id === b.id) throw new Error('模拟删除失败');
+      return removeOriginal(id);
+    });
+
+    await expect(deleteWithUndo([a.id, b.id], '部分失败')).rejects.toThrow('模拟删除失败');
+
+    const batches = await listTrash();
+    expect(batches).toHaveLength(1);
+    expect(batches[0].nodes.map((node) => node.title)).toEqual(['会成功']);
+
+    const result = await restoreBatch(batches[0].id);
+    expect(result.restored).toBe(1);
+    const tree = await bookmarkService.getTree();
+    expect(flattenTree(tree).some((item) => item.title === '会成功')).toBe(true);
+  });
+
+  it('恢复中断时补偿已创建节点，批次保留可重试', async () => {
+    const a = await bookmarkService.create({ parentId: '1', title: '第一项', url: 'https://r1.example.com/' });
+    const b = await bookmarkService.create({ parentId: '1', title: '第二项', url: 'https://r2.example.com/' });
+    const batch = await deleteWithUndo([a.id, b.id], '中断恢复');
+    expect(await listTrash()).toHaveLength(1);
+
+    const backend = getBackend();
+    const createOriginal = backend.create.bind(backend);
+    let createCount = 0;
+    vi.spyOn(backend, 'create').mockImplementation(async (input) => {
+      createCount += 1;
+      if (createCount >= 2) throw new Error('模拟创建失败');
+      return createOriginal(input);
+    });
+
+    await expect(restoreBatch(batch.id)).rejects.toThrow('模拟创建失败');
+    // 批次仍在，可重试
+    expect(await listTrash()).toHaveLength(1);
+    // 已创建的节点被补偿移除
+    const tree = await bookmarkService.getTree();
+    expect(flattenTree(tree).some((item) => item.title === '第一项')).toBe(false);
   });
 });

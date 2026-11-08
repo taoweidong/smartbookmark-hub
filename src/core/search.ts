@@ -136,6 +136,10 @@ export function rankBookmarks(
   }));
 }
 
+export function webSearchTitle(query: string): string {
+  return `在默认搜索引擎中搜索“${query}”`;
+}
+
 export interface SearchAllOptions {
   includeHistory: boolean;
   historyDays: number;
@@ -198,11 +202,12 @@ export async function searchAll(
   results.push({
     kind: 'web',
     id: 'web-search',
-    title: `在默认搜索引擎中搜索“${trimmed}”`,
+    title: webSearchTitle(trimmed),
     url: '',
     subtitle: '网页搜索 · 使用浏览器设置的默认引擎',
     score: -1,
     matchedOn: '网页',
+    query: trimmed,
   });
 
   return results.slice(0, opts.limit + 1);

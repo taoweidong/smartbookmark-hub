@@ -40,8 +40,22 @@ describe('toSuggestions', () => {
 });
 
 describe('parseSuggestionContent', () => {
-  it('区分网页搜索与 URL', () => {
+  it('区分网页搜索、URL 与自由文本', () => {
     expect(parseSuggestionContent(`${WEB_PREFIX}你好`)).toEqual({ kind: 'web', text: '你好' });
     expect(parseSuggestionContent('https://a.com/')).toEqual({ kind: 'url', url: 'https://a.com/' });
+    expect(parseSuggestionContent('自由输入的词')).toEqual({ kind: 'text', text: '自由输入的词' });
+    expect(parseSuggestionContent('chrome://extensions')).toEqual({ kind: 'text', text: 'chrome://extensions' });
+  });
+
+  it('web 建议的 content 可无损还原查询词', () => {
+    const [web] = toSuggestions([result('web', '在默认搜索引擎中搜索“知乎 界面”', '', -1)]);
+    expect(parseSuggestionContent(web.content)).toEqual({ kind: 'web', text: '知乎 界面' });
+  });
+
+  it('没有结构化 query 字段时从标题文案反解（兼容路径）', async () => {
+    const { toSuggestions: toSuggestionsLatest } = await import('./suggestions');
+    const legacy: SearchResult = { kind: 'web', id: 'web', title: '在默认搜索引擎中搜索“旧数据”', url: '', subtitle: '', score: -1, matchedOn: '' };
+    const [web] = toSuggestionsLatest([legacy]);
+    expect(web.content).toBe(`${WEB_PREFIX}旧数据`);
   });
 });

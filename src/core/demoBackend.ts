@@ -1,4 +1,5 @@
 import type { Backend, CreateInput } from './backend';
+import { SETTINGS_KEY } from './constants';
 import { createFixtureHistory, createFixtureTree } from './fixtures';
 import type { BookmarkNode, Disposition } from './types';
 
@@ -67,12 +68,14 @@ export function createDemoBackend(seed?: BookmarkNode[]): Backend {
       const store = (globalThis as { localStorage?: Storage }).localStorage;
       if (store) store.setItem(key, JSON.stringify(value));
       else memory.set(key, value);
-      queueMicrotask(() => settingsListeners.forEach((cb) => cb()));
+      // 与 chrome.storage.onChanged 对齐：仅设置键变化时通知设置订阅者
+      if (key === SETTINGS_KEY) queueMicrotask(() => settingsListeners.forEach((cb) => cb()));
     },
     async remove(key: string): Promise<void> {
       const store = (globalThis as { localStorage?: Storage }).localStorage;
       if (store) store.removeItem(key);
       else memory.delete(key);
+      if (key === SETTINGS_KEY) queueMicrotask(() => settingsListeners.forEach((cb) => cb()));
     },
   };
 
@@ -115,13 +118,16 @@ export function createDemoBackend(seed?: BookmarkNode[]): Backend {
     },
 
     async move(id, dest) {
-      const node = detach(id);
+      const node = find(id);
+      if (!node) throw new Error(`找不到书签节点 ${id}`);
+      // 与 Chrome 语义对齐：先完成全部校验，再修改树，失败时不留下半完成状态
       const parentId = dest.parentId ?? node.parentId ?? '1';
       const parent = find(parentId);
       if (!parent?.children) throw new Error(`目标文件夹 ${parentId} 不存在`);
       if (parentId === id || isDescendant(node, parentId)) {
         throw new Error('不能把文件夹移动到它自己的子文件夹里');
       }
+      detach(id);
       const at = Math.min(Math.max(0, dest.index ?? parent.children.length), parent.children.length);
       node.parentId = parentId;
       parent.children.splice(at, 0, node);
@@ -166,6 +172,7 @@ export function createDemoBackend(seed?: BookmarkNode[]): Backend {
           (item) =>
             !q || item.title.toLowerCase().includes(q) || item.url.toLowerCase().includes(q),
         )
+        .sort((a, b) => b.lastVisitTime - a.lastVisitTime)
         .slice(0, max);
     },
 
@@ -176,7 +183,7 @@ export function createDemoBackend(seed?: BookmarkNode[]): Backend {
     },
 
     async webSearch(text: string, disposition: 'current' | 'newTab') {
-      const url = `https://www.bing.com/search?q=${encodeURIComponent(text)}`;
+      const url = `https://www.google.com/search?q=${encodeURIComponent(text)}`;
       demoOpened.push({ url, disposition: `web:${disposition}` });
       const view = (globalThis as { window?: Window }).window;
       view?.open(url, '_blank', 'noopener,noreferrer');

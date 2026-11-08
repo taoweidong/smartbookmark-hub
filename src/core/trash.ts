@@ -1,13 +1,13 @@
 import { bookmarkService, findNode } from './bookmarks';
 import { CACHE_PREFIX, cache } from './cache';
-import { MAX_TRASH_BATCHES, MAX_TRASH_NODES, SPECIAL_FOLDER_IDS } from './constants';
+import { MAX_TRASH_BATCHES, MAX_TRASH_NODES, ROOT_ID, SPECIAL_FOLDER_IDS } from './constants';
 import { uid } from './format';
 import type { BookmarkNode, TrashBatch, TrashNode } from './types';
 
 function parentTitlesOf(tree: BookmarkNode[], parentId: string | undefined): string[] {
   const titles: string[] = [];
   let current = parentId ? findNode(tree, parentId) : undefined;
-  while (current && current.parentId && current.id !== '0') {
+  while (current && current.parentId && current.id !== ROOT_ID) {
     titles.unshift(current.title || '未命名文件夹');
     current = findNode(tree, current.parentId);
   }
@@ -86,8 +86,18 @@ export async function deleteWithUndo(ids: string[], label: string): Promise<Tras
   const batch: TrashBatch = { id: uid('trash'), deletedAt: Date.now(), label, nodes };
   await writeBatch(batch);
 
-  for (const node of nodes) {
-    await bookmarkService.remove(node.id);
+  const deleted: TrashNode[] = [];
+  try {
+    for (const node of nodes) {
+      await bookmarkService.remove(node.id);
+      deleted.push(node);
+    }
+  } catch (error) {
+    // 部分失败：批次只保留真正删除成功的节点，避免恢复时产生重复
+    batch.nodes = deleted;
+    if (deleted.length) await writeBatch(batch);
+    else await cache.del(CACHE_PREFIX.trash + batch.id);
+    throw error;
   }
 
   return batch;
@@ -135,16 +145,21 @@ async function ensureParent(
   return parentId;
 }
 
-async function recreate(node: TrashNode, parentId: string): Promise<number> {
+async function recreate(node: TrashNode, parentId: string, createdIds: string[]): Promise<number> {
+  // Chrome 对越界 index 会报 "Index out of bounds"，恢复前按当前兄弟数量收敛
+  const tree = await bookmarkService.getTree();
+  const parent = findNode(tree, parentId);
+  const index = Math.max(0, Math.min(node.index, parent?.children?.length ?? 0));
   const created = await bookmarkService.create({
     parentId,
-    index: node.index,
+    index,
     title: node.title,
     url: node.url,
   });
+  createdIds.push(created.id);
   let total = 1;
   for (const child of node.children ?? []) {
-    total += await recreate(child, created.id);
+    total += await recreate(child, created.id, createdIds);
   }
   return total;
 }
@@ -156,11 +171,20 @@ export async function restoreBatch(
   if (!batch) throw new Error('回收站中找不到该批次');
 
   const fallbackCounter = { value: 0 };
+  const createdIds: string[] = [];
   let restored = 0;
 
-  for (const node of batch.nodes) {
-    const parentId = await ensureParent(node, fallbackCounter);
-    restored += await recreate(node, parentId);
+  try {
+    for (const node of batch.nodes) {
+      const parentId = await ensureParent(node, fallbackCounter);
+      restored += await recreate(node, parentId, createdIds);
+    }
+  } catch (error) {
+    // 恢复中断：补偿已创建的节点，保留批次供用户重试（幂等）
+    for (const id of createdIds) {
+      await bookmarkService.remove(id).catch(() => {});
+    }
+    throw error;
   }
 
   await cache.del(CACHE_PREFIX.trash + batchId);

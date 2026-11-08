@@ -68,33 +68,41 @@ export interface FolderInfo {
 export function collectFolders(nodes: BookmarkNode[]): FolderInfo[] {
   const out: FolderInfo[] = [];
 
-  const countDeep = (node: BookmarkNode): number => {
-    let total = 0;
-    for (const child of node.children ?? []) {
-      total += child.url ? 1 : countDeep(child);
-    }
-    return total;
-  };
-
-  const visit = (node: BookmarkNode, depth: number, path: string[]) => {
-    if (node.url || node.id === ROOT_ID) {
-      for (const child of node.children ?? []) visit(child, depth, path);
-      return;
+  // 单次 DFS 自底向上累计 totalCount，避免每个文件夹重复遍历子树（嵌套链最坏 O(n²)）
+  const visit = (node: BookmarkNode, depth: number, path: string[]): number => {
+    if (node.url) return 1;
+    if (node.id === ROOT_ID) {
+      let rootTotal = 0;
+      for (const child of node.children ?? []) rootTotal += visit(child, depth, path);
+      return rootTotal;
     }
     const title = node.title || '未命名文件夹';
-    const children = node.children ?? [];
-    out.push({
+    const info: FolderInfo = {
       id: node.id,
       title,
       parentId: node.parentId,
       depth,
       path: [...path, title],
-      directCount: children.filter((child) => Boolean(child.url)).length,
-      totalCount: countDeep(node),
+      directCount: 0,
+      totalCount: 0,
       special: SPECIAL_FOLDER_IDS.includes(node.id),
-    });
-    const nextPath = [...path, title];
-    for (const child of children) visit(child, depth + 1, nextPath);
+    };
+    out.push(info);
+
+    const children = node.children ?? [];
+    let total = 0;
+    let direct = 0;
+    for (const child of children) {
+      if (child.url) {
+        direct += 1;
+        total += 1;
+        continue;
+      }
+      total += visit(child, depth + 1, info.path);
+    }
+    info.directCount = direct;
+    info.totalCount = total;
+    return total;
   };
 
   for (const node of nodes) visit(node, 0, []);
@@ -140,8 +148,32 @@ export const bookmarkService = {
     else await getBackend().remove(id);
   },
 
-  removeMany: async (ids: string[]): Promise<void> => {
-    for (const id of ids) await bookmarkService.remove(id);
+  removeMany: async (ids: string[]) => {
+    // 只取一次树，文件夹/书签分组后分别批量删除；被选中祖先覆盖的子文件夹交给 removeTree 连带删除
+    const tree = await getBackend().getTree();
+    const selected = new Set(ids);
+    const leaves: string[] = [];
+    const folders: string[] = [];
+    for (const id of ids) {
+      const node = findNode(tree, id);
+      if (!node) continue;
+      if (!isFolder(node)) {
+        leaves.push(id);
+        continue;
+      }
+      let parentId = node.parentId;
+      let covered = false;
+      while (parentId) {
+        if (selected.has(parentId)) {
+          covered = true;
+          break;
+        }
+        parentId = findNode(tree, parentId)?.parentId;
+      }
+      if (!covered) folders.push(id);
+    }
+    for (const id of leaves) await getBackend().remove(id);
+    for (const id of folders) await getBackend().removeTree(id);
   },
 
   search: (query: string) => getBackend().search(query),

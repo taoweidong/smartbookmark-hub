@@ -2,7 +2,8 @@ import { escapeHtml } from './format';
 import type { BookmarkNode } from './types';
 
 function seconds(ts?: number): string {
-  return String(Math.floor((ts ?? Date.now()) / 1000));
+  const value = typeof ts === 'number' && Number.isFinite(ts) ? ts : Date.now();
+  return String(Math.floor(value / 1000));
 }
 
 export function toNetscapeHtml(
@@ -53,16 +54,4 @@ export function toJsonBackup(
   tags: Record<string, string[]> = {},
 ): string {
   return JSON.stringify({ format: 'smartbookmark-hub', version: 1, exportedAt: Date.now(), tree, tags }, null, 2);
-}
-
-export function downloadText(filename: string, text: string, mime: string): void {
-  const blob = new Blob([text], { type: `${mime};charset=utf-8` });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
