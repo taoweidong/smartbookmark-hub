@@ -93,8 +93,27 @@ export function parseJsonBackup(text: string): { tree: BookmarkNode[]; tags: Rec
   if (data.format !== 'smartbookmark-hub' || !Array.isArray(data.tree)) {
     throw new Error('不是 SmartBookmark Hub 的 JSON 备份文件');
   }
-  // 标签必须严格是 string[]：损坏/手改的备份直接丢弃非法项，
-  // 防止脏数据持久化进 settings 后在 UI 中触发 TypeError（此前会造成启动白屏）
+  // 逐节点校验形状与 scheme：任何损坏节点都在解析阶段整体拒绝，
+  // 不会走到「创建到一半失败留下部分导入」的路径
+  const validateNode = (node: unknown): void => {
+    if (!node || typeof node !== 'object' || Array.isArray(node)) {
+      throw new Error('备份文件节点数据损坏');
+    }
+    const candidate = node as { title?: unknown; url?: unknown; children?: unknown };
+    if (typeof candidate.title !== 'string') throw new Error('备份文件节点数据损坏');
+    if (candidate.url !== undefined) {
+      if (typeof candidate.url !== 'string' || !isHttpUrl(candidate.url)) {
+        throw new Error('备份文件节点数据损坏');
+      }
+    }
+    if (candidate.children !== undefined) {
+      if (!Array.isArray(candidate.children)) throw new Error('备份文件节点数据损坏');
+      for (const child of candidate.children) validateNode(child);
+    }
+  };
+  for (const node of data.tree) validateNode(node);
+
+  // 标签必须严格是 string[]：损坏/手改的备份直接丢弃非法项
   const tags: Record<string, string[]> = {};
   if (data.tags && typeof data.tags === 'object') {
     for (const [key, value] of Object.entries(data.tags as Record<string, unknown>)) {

@@ -193,3 +193,30 @@ describe('parseJsonBackup 校验', () => {
     expect(parsed.tags).toEqual(tags);
   });
 });
+describe('JSON 节点逐项校验（v2 R4.5）', () => {
+  it('拒绝节点形状非法的备份，杜绝部分导入', () => {
+    for (const broken of [
+      '{"format":"smartbookmark-hub","tree":[null]}',
+      '{"format":"smartbookmark-hub","tree":[{"title":5}]}',
+      '{"format":"smartbookmark-hub","tree":[{"title":"x","url":"javascript:alert(1)"}]}',
+      '{"format":"smartbookmark-hub","tree":[{"title":"x","url":"data:text/html,<script>"}]}',
+      '{"format":"smartbookmark-hub","tree":[{"title":"x","children":[null]}]}',
+      '{"format":"smartbookmark-hub","tree":[{"title":"x","children":"not-array"}]}',
+    ]) {
+      expect(() => parseJsonBackup(broken)).toThrow('备份文件节点数据损坏');
+    }
+  });
+
+  it('合法嵌套备份通过校验', () => {
+    const parsed = parseJsonBackup(
+      JSON.stringify({
+        format: 'smartbookmark-hub',
+        tree: [{ id: 'a', title: '目录', children: [{ id: 'b', title: '页', url: 'https://ok.example.com/' }] }],
+        tags: { b: ['t'] },
+      }),
+    );
+    expect(parsed.tree).toHaveLength(1);
+    expect(parsed.tree[0].children).toHaveLength(1);
+    expect(parsed.tags).toEqual({ b: ['t'] });
+  });
+});
