@@ -6,6 +6,7 @@ import { ThemeToggle } from '@/ui/components/ThemeToggle';
 import { Toasts } from '@/ui/components/Toasts';
 import { ConfirmDialog, type ConfirmRequest } from '@/ui/components/Modal';
 import { BookmarkEditor, type EditorTarget } from '@/ui/components/BookmarkEditor';
+import { getBackend } from '@/core/backend';
 import { useBootstrap } from '@/ui/hooks/useBootstrap';
 import { useHealth } from '@/ui/hooks/useHealth';
 import { useSafeDelete } from '@/ui/hooks/useSafeDelete';
@@ -53,11 +54,7 @@ export default function App() {
 
   const current = VIEWS.find((item) => item.key === view) ?? VIEWS[0];
 
-  const openHub = (search: boolean) => {
-    const runtime = (globalThis as { chrome?: { runtime?: { sendMessage?(message: unknown): void } } }).chrome?.runtime;
-    if (runtime?.sendMessage) runtime.sendMessage({ type: 'sbh:open-hub', focusSearch: search });
-    else window.open(search ? 'newtab.html#search' : 'newtab.html', '_blank', 'noopener,noreferrer');
-  };
+  const openHub = (search: boolean) => void getBackend().openHub(search);
 
   return (
     <div className="relative flex h-full">

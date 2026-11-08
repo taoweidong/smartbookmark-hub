@@ -1,5 +1,8 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setBackend } from '@/core/backend';
+import { createChromeApiMock, installChromeApiMock } from '@/test/chromeApiMock';
+import { createChromeBackend } from '@/core/chromeBackend';
 import { store } from '@/core/store';
 import App from './App';
 
@@ -10,13 +13,6 @@ vi.mock('./CleanerView', () => ({ CleanerView: () => <div data-testid="view-clea
 vi.mock('./BackupView', () => ({ BackupView: () => <div data-testid="view-backup" /> }));
 vi.mock('./SettingsView', () => ({ SettingsView: () => <div data-testid="view-settings" /> }));
 
-type ChromeStub = { runtime: { sendMessage: ReturnType<typeof vi.fn> } };
-
-function installChromeStub(): ChromeStub {
-  const stub: ChromeStub = { runtime: { sendMessage: vi.fn() } };
-  (globalThis as { chrome?: unknown }).chrome = stub;
-  return stub;
-}
 
 async function renderApp() {
   // 预初始化 store，避免组件挂载后 init 的异步 setState 逸出 act
@@ -133,16 +129,18 @@ describe('options/App 导航交互', () => {
 });
 
 describe('options/App 打开首页入口', () => {
-  it('有 chrome.runtime 时通过消息打开首页（当前直调行为，R6 将收敛到 Backend）', async () => {
-    const stub = installChromeStub();
+  it('有 chrome.runtime 时经 Backend.openHub 通过消息打开首页（v2 R6 收敛）', async () => {
+    const mock = createChromeApiMock();
+    installChromeApiMock(mock);
+    setBackend(createChromeBackend());
     await renderApp();
 
     fireEvent.click(screen.getByRole('button', { name: /打开书签首页/ }));
-    expect(stub.runtime.sendMessage).toHaveBeenCalledWith({ type: 'sbh:open-hub', focusSearch: false });
+    expect(mock.runtime.sendMessage).toHaveBeenCalledWith({ type: 'sbh:open-hub', focusSearch: false });
 
     fireEvent.click(screen.getByRole('button', { name: /全局搜索/ }));
-    expect(stub.runtime.sendMessage).toHaveBeenCalledWith({ type: 'sbh:open-hub', focusSearch: true });
-    expect(stub.runtime.sendMessage).toHaveBeenCalledTimes(2);
+    expect(mock.runtime.sendMessage).toHaveBeenCalledWith({ type: 'sbh:open-hub', focusSearch: true });
+    expect(mock.runtime.sendMessage).toHaveBeenCalledTimes(2);
   });
 
   it('无 chrome.runtime 时回退 window.open 打开 newtab 页面', async () => {

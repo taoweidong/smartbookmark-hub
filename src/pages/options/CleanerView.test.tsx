@@ -146,3 +146,37 @@ describe('CleanerView', () => {
     await waitFor(() => expect(store.getState().settings.scan.concurrency).toBe(8));
   });
 });
+
+describe('报告即时修剪（v2 R6d）', () => {
+  it('删除书签后报告对应条目即时移除', async () => {
+    await store.getState().init();
+    const victim = store.getState().flat[0];
+    await cache.set(CACHE_PREFIX.report + 'scan-live', {
+      id: 'scan-live',
+      startedAt: Date.now(),
+      finishedAt: Date.now(),
+      total: 1,
+      checked: 1,
+      deadLinks: [
+        {
+          bookmark: victim,
+          health: { canonicalUrl: victim.url, status: 'dead', httpStatus: 404, checkedAt: Date.now() },
+        },
+      ],
+      blocked: [],
+      errors: [],
+      duplicates: [],
+      emptyFolders: [],
+      cursor: 1,
+      cancelled: false,
+    });
+
+    const requests: ConfirmRequest[] = [];
+    render(<CleanerView requestConfirm={(request) => requests.push(request)} onHealthChanged={() => {}} />);
+    await waitFor(() => expect(screen.getByText(victim.title)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /清理全部 1 条/ }));
+    await requests[0].onConfirm();
+    await waitFor(() => expect(screen.queryByText(victim.title)).not.toBeInTheDocument());
+  });
+});

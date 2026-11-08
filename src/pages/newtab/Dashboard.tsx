@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ExternalLink, FolderOpen, ChevronDown, SlidersHorizontal } from 'lucide-react';
-import { getBackend } from '@/core/backend';
 import { bookmarksInFolder, type FolderInfo } from '@/core/bookmarks';
 import { store, useApp } from '@/core/store';
 import type { FlatBookmark, LinkHealth, Settings } from '@/core/types';
 import { canonicalUrl, hostOf } from '@/core/url';
 import { BookmarkCard } from '@/ui/components/BookmarkCard';
 import { EmptyState, SkeletonCards } from '@/ui/components/Feedback';
+import { openWithFeedback } from '@/ui/openWithFeedback';
 import { folderHue } from '@/ui/folderHue';
 import { FolderRail } from './FolderRail';
 
@@ -69,12 +69,7 @@ export function Dashboard({
   }, [sections]);
 
   const open = (bookmark: FlatBookmark, newTab: boolean) => {
-    void getBackend().openUrl(bookmark.url, newTab ? 'newTab' : 'current').catch((error: unknown) => {
-      store.getState().pushToast({
-        message: error instanceof Error ? error.message : '打开链接失败',
-        tone: 'danger',
-      });
-    });
+    void openWithFeedback(bookmark.url, newTab ? 'newTab' : 'current');
   };
 
   const jump = (id: string) => {
@@ -139,7 +134,7 @@ export function Dashboard({
                   className="btn btn-sm btn-ghost shrink-0"
                   disabled={!items.length}
                   onClick={() => {
-                    for (const item of items.slice(0, 10)) void getBackend().openUrl(item.url, 'newTab');
+                    for (const item of items.slice(0, 10)) void openWithFeedback(item.url);
                     store.getState().pushToast({
                       message: `已在新标签页打开 ${Math.min(10, items.length)} 个链接`,
                       tone: 'info',

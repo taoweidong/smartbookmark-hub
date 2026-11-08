@@ -102,6 +102,7 @@ export function createChromeLikeBackend(seed: BookmarkNode[]): Backend {
     requestHostPermission: async () => true,
     removeHostPermission: async () => true,
     openOptions: async () => {},
+    openHub: async () => {},
     storageGet: async () => undefined,
     storageSet: async () => {},
     storageRemove: async () => {},

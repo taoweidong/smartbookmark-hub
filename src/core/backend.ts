@@ -28,6 +28,8 @@ export interface Backend {
   requestHostPermission(): Promise<boolean>;
   removeHostPermission(): Promise<boolean>;
   openOptions(): Promise<void>;
+  /** 请求 SW 打开（或复用）书签首页；demo 下直接 window.open */
+  openHub(focusSearch: boolean): Promise<void>;
   storageGet<T>(key: string): Promise<T | undefined>;
   storageSet<T>(key: string, value: T): Promise<void>;
   storageRemove(key: string): Promise<void>;

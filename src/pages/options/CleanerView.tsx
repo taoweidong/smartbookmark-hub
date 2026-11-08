@@ -20,7 +20,8 @@ import { formatDateTime, timeAgo } from '@/core/format';
 import { displayUrl } from '@/core/url';
 import type { ScanReport, Settings } from '@/core/types';
 import { clearReports, listReports, runScan } from '@/core/cleaner/scan';
-import { Slider, Switch } from '@/ui/components/Controls';
+import { openWithFeedback } from '@/ui/openWithFeedback';
+import { DebouncedSlider, Switch } from '@/ui/components/Controls';
 import { Progress, EmptyState, StatTile } from '@/ui/components/Feedback';
 import { Favicon } from '@/ui/components/Favicon';
 import type { ConfirmRequest } from '@/ui/components/Modal';
@@ -47,7 +48,34 @@ export function CleanerView({
   const scanSettings = useApp((state) => state.settings.scan);
   const flat = useApp((state) => state.flat);
   const demo = useApp((state) => state.demo);
-  const safeDelete = useSafeDelete(requestConfirm);
+
+  // 确认框完成后修剪报告中已不存在的书签：清理动作立即反映到列表（v2 R6d）
+  const requestConfirmPruning = useCallback(
+    (request: ConfirmRequest) => {
+      requestConfirm({
+        ...request,
+        onConfirm: async () => {
+          await request.onConfirm();
+          const { flat: currentFlat } = store.getState();
+          const liveIds = new Set(currentFlat.map((item) => item.id));
+          setReport((current) => {
+            if (!current) return current;
+            const deadLinks = current.deadLinks.filter((item) => liveIds.has(item.bookmark.id));
+            const blocked = current.blocked.filter((item) => liveIds.has(item.bookmark.id));
+            const errors = current.errors.filter((item) => liveIds.has(item.bookmark.id));
+            const duplicates = current.duplicates
+              .map((group) => ({ ...group, items: group.items.filter((item) => liveIds.has(item.id)) }))
+              .filter((group) => group.items.length >= 2);
+            return { ...current, deadLinks, blocked, errors, duplicates };
+          });
+        },
+      });
+    },
+    [requestConfirm],
+  );
+
+  const safeDeleteWithPruning = useSafeDelete(requestConfirmPruning);
+  const safeDelete = safeDeleteWithPruning;
 
   const [report, setReport] = useState<ScanReport | null>(null);
   const [reports, setReports] = useState<ScanReport[]>([]);
@@ -63,12 +91,24 @@ export function CleanerView({
   }, []);
 
   useEffect(() => {
+    let alive = true;
     void (async () => {
-      setGranted(await getBackend().hasHostPermission());
-      const all = await listReports();
-      setReports(all);
-      if (all[0]) setReport(all[0]);
+      try {
+        const ok = await getBackend().hasHostPermission();
+        if (!alive) return;
+        setGranted(ok);
+        const all = await listReports();
+        if (!alive) return;
+        setReports(all);
+        if (all[0]) setReport(all[0]);
+      } catch {
+        // 权限/报告读取失败：按未授予与空列表处理，不产生 unhandled rejection
+        if (alive) setGranted(false);
+      }
     })();
+    return () => {
+      alive = false;
+    };
   }, []);
 
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -134,11 +174,11 @@ export function CleanerView({
           <p className="mb-2 text-[11.5px] leading-relaxed text-text-faint">
             并发与延迟越低越不容易被目标站点限流。默认值适合几千条书签。
           </p>
-          <Slider label="并发请求数" value={scanSettings.concurrency} min={1} max={10} onChange={(value) => patch({ concurrency: value })} />
-          <Slider label="单条超时" value={scanSettings.timeoutMs} min={2000} max={20000} step={1000} onChange={(value) => patch({ timeoutMs: value })} format={(value) => `${value / 1000}s`} />
-          <Slider label="同域名间隔" value={scanSettings.hostDelayMs} min={0} max={2000} step={50} onChange={(value) => patch({ hostDelayMs: value })} format={(value) => `${value}ms`} />
-          <Slider label="结果缓存" value={scanSettings.cacheDays} min={1} max={30} onChange={(value) => patch({ cacheDays: value })} format={(value) => `${value} 天`} />
-          <Slider label="标题相似度阈值" value={scanSettings.titleThreshold} min={0.5} max={1} step={0.01} onChange={(value) => patch({ titleThreshold: value })} format={(value) => value.toFixed(2)} />
+          <DebouncedSlider label="并发请求数" value={scanSettings.concurrency} min={1} max={10} onCommit={(value) => patch({ concurrency: value })} />
+          <DebouncedSlider label="单条超时" value={scanSettings.timeoutMs} min={2000} max={20000} step={1000} onCommit={(value) => patch({ timeoutMs: value })} format={(value) => `${value / 1000}s`} />
+          <DebouncedSlider label="同域名间隔" value={scanSettings.hostDelayMs} min={0} max={2000} step={50} onCommit={(value) => patch({ hostDelayMs: value })} format={(value) => `${value}ms`} />
+          <DebouncedSlider label="结果缓存" value={scanSettings.cacheDays} min={1} max={30} onCommit={(value) => patch({ cacheDays: value })} format={(value) => `${value} 天`} />
+          <DebouncedSlider label="标题相似度阈值" value={scanSettings.titleThreshold} min={0.5} max={1} step={0.01} onCommit={(value) => patch({ titleThreshold: value })} format={(value) => value.toFixed(2)} />
           <div className="mt-1 border-t border-line pt-1">
             <Switch label="忽略 www 前缀" hint="www.a.com 与 a.com 视为同一地址" checked={scanSettings.ignoreWww} onChange={(value) => patch({ ignoreWww: value })} />
             <Switch label="忽略缓存重新检测" hint="对每条链接都发起新请求" checked={force} onChange={setForce} />
@@ -379,7 +419,7 @@ export function CleanerView({
                                   type="button"
                                   className="icon-btn h-6 w-6 shrink-0"
                                   aria-label={`打开 ${item.title}`}
-                                  onClick={() => void getBackend().openUrl(item.url, 'newTab')}
+                                  onClick={() => void openWithFeedback(item.url)}
                                 >
                                   <ExternalLink size={11} aria-hidden="true" />
                                 </button>
@@ -499,7 +539,7 @@ function LinkList({
               type="button"
               className="icon-btn h-6 w-6 shrink-0"
               aria-label={`打开 ${item.bookmark.title}`}
-              onClick={() => void getBackend().openUrl(item.bookmark.url, 'newTab')}
+              onClick={() => void openWithFeedback(item.bookmark.url)}
             >
               <ExternalLink size={11} aria-hidden="true" />
             </button>

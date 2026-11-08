@@ -13,7 +13,6 @@ import {
   Layers,
   Bookmark as BookmarkIcon,
 } from 'lucide-react';
-import { getBackend } from '@/core/backend';
 import { bookmarkService, bookmarksInFolder, findNode } from '@/core/bookmarks';
 import { store, useApp } from '@/core/store';
 import { formatDate } from '@/core/format';
@@ -25,6 +24,7 @@ import { Modal, type ConfirmRequest } from '@/ui/components/Modal';
 import { EmptyState } from '@/ui/components/Feedback';
 import { Favicon } from '@/ui/components/Favicon';
 import { folderHue } from '@/ui/folderHue';
+import { openWithFeedback } from '@/ui/openWithFeedback';
 import { useSafeDelete } from '@/ui/hooks/useSafeDelete';
 import { deleteWithUndo, restoreBatch } from '@/core/trash';
 import type { EditorTarget } from '@/ui/components/BookmarkEditor';
@@ -458,7 +458,7 @@ export function BookmarksView({
                         type="button"
                         className="icon-btn h-6 w-6"
                         aria-label={`打开 ${bookmark.title}`}
-                        onClick={() => void getBackend().openUrl(bookmark.url, 'newTab')}
+                        onClick={() => void openWithFeedback(bookmark.url)}
                       >
                         <ExternalLink size={12} aria-hidden="true" />
                       </button>

@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LayoutGrid, Rows3, FolderCog, RotateCcw, ImagePlus, BarChart3 } from 'lucide-react';
 import { store, useApp } from '@/core/store';
 import type { Settings } from '@/core/types';
@@ -27,6 +27,14 @@ export function DisplayControls({ onPickFolders }: { onPickFolders(): void }) {
   const dashboard = useApp((state) => state.settings.dashboard);
   const accent = useApp((state) => state.settings.accent);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // 拖动/选色过程本地回显，停顿 300ms 才写设置（v2 R6e）
+  const [perFolderDraft, setPerFolderDraft] = useState(dashboard.perFolder);
+  const perFolderTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => setPerFolderDraft(dashboard.perFolder), [dashboard.perFolder]);
+  const [colorDraft, setColorDraft] = useState(dashboard.background.value || '#101731');
+  const colorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => setColorDraft(dashboard.background.value || '#101731'), [dashboard.background.value]);
 
   const patch = (value: Partial<Settings['dashboard']>) =>
     void store.getState().updateSettings({ dashboard: value });
@@ -95,9 +103,14 @@ export function DisplayControls({ onPickFolders }: { onPickFolders(): void }) {
           max={24}
           step={2}
           aria-label="每个文件夹显示的书签数"
-          value={dashboard.perFolder}
-          style={{ ['--pct' as string]: `${((dashboard.perFolder - 4) / 20) * 100}%` }}
-          onChange={(event) => patch({ perFolder: Number(event.target.value) })}
+          value={perFolderDraft}
+          style={{ ['--pct' as string]: `${((perFolderDraft - 4) / 20) * 100}%` }}
+          onChange={(event) => {
+            const next = Number(event.target.value);
+            setPerFolderDraft(next);
+            if (perFolderTimer.current) clearTimeout(perFolderTimer.current);
+            perFolderTimer.current = setTimeout(() => patch({ perFolder: next }), 300);
+          }}
         />
         <span className="mono w-[18px] text-[11.5px] font-bold text-accent">{dashboard.perFolder}</span>
       </ToolGroup>
@@ -116,7 +129,8 @@ export function DisplayControls({ onPickFolders }: { onPickFolders(): void }) {
               });
               return;
             }
-            void patch({ background: { type, value: '' } });
+            // 首次切到纯色即生效：写入默认色而非空值（v2 R6）
+            void patch({ background: { type, value: dashboard.background.value || '#101731' } });
           }}
         >
           <option value="aurora">极光</option>
@@ -133,8 +147,13 @@ export function DisplayControls({ onPickFolders }: { onPickFolders(): void }) {
             type="color"
             className="h-6 w-8 cursor-pointer border border-line-strong bg-bg"
             aria-label="背景颜色"
-            value={dashboard.background.value || '#101731'}
-            onChange={(event) => void patch({ background: { type: 'solid', value: event.target.value } })}
+            value={colorDraft}
+            onChange={(event) => {
+              const next = event.target.value;
+              setColorDraft(next);
+              if (colorTimer.current) clearTimeout(colorTimer.current);
+              colorTimer.current = setTimeout(() => patch({ background: { type: 'solid', value: next } }), 300);
+            }}
           />
         )}
         <input

@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ExternalLink, Save, Trash2, FolderInput, Link2, CalendarPlus, ShieldCheck, ShieldAlert } from 'lucide-react';
-import { getBackend } from '@/core/backend';
 import { bookmarkService } from '@/core/bookmarks';
 import { setTags } from '@/core/settings';
 import { store, useApp } from '@/core/store';
 import { formatDateTime } from '@/core/format';
 import { canonicalUrl, displayUrl, isHttpUrl } from '@/core/url';
 import type { FlatBookmark, LinkHealth } from '@/core/types';
+import { openWithFeedback } from '@/ui/openWithFeedback';
 import { Drawer } from './Drawer';
 import { Field } from './Controls';
 import { TagEditor } from './TagEditor';
@@ -123,7 +123,7 @@ export function BookmarkEditor({
               <button
                 type="button"
                 className="btn"
-                onClick={() => void getBackend().openUrl(editing.url, 'newTab')}
+                onClick={() => void openWithFeedback(editing.url)}
               >
                 <ExternalLink size={13} aria-hidden="true" />
                 打开

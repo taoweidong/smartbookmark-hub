@@ -135,6 +135,14 @@ export function createChromeBackend(): Backend {
 
     openOptions: () => invokeVoid((cb) => chrome.runtime.openOptionsPage(cb)),
 
+    async openHub(focusSearch: boolean) {
+      try {
+        await chrome.runtime.sendMessage({ type: 'sbh:open-hub', focusSearch });
+      } catch {
+        // SW 未就绪或消息无应答时忽略：UI 不应因此报错
+      }
+    },
+
     async storageGet<T>(key: string) {
       const result = await chrome.storage.local.get(key);
       return result[key] as T | undefined;

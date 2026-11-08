@@ -224,6 +224,11 @@ export function createDemoBackend(seed?: BookmarkNode[]): Backend {
       view?.open('options.html', '_blank', 'noopener,noreferrer');
     },
 
+    async openHub(focusSearch: boolean) {
+      const view = (globalThis as { window?: Window }).window;
+      view?.open(focusSearch ? 'newtab.html#search' : 'newtab.html', '_blank', 'noopener,noreferrer');
+    },
+
     storageGet: storage.get,
     storageSet: storage.set,
     storageRemove: storage.remove,

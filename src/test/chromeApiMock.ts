@@ -84,6 +84,7 @@ export function createChromeApiMock() {
       id: 'mock-extension-id',
       lastError: undefined as { message?: string } | undefined,
       getURL: vi.fn((path: string) => `chrome-extension://mock-extension-id/${path}`),
+      sendMessage: vi.fn(async (_message: unknown) => ({})),
       openOptionsPage: callbackApi<[], void>(() => undefined),
       onMessage: createMockEvent<
         [message: unknown, sender: unknown, sendResponse: (response?: unknown) => void],

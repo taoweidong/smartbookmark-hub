@@ -10,6 +10,7 @@ import { SearchBox } from '@/ui/components/SearchBox';
 import { ThemeToggle } from '@/ui/components/ThemeToggle';
 import { Toasts } from '@/ui/components/Toasts';
 import { Favicon } from '@/ui/components/Favicon';
+import { openWithFeedback } from '@/ui/openWithFeedback';
 import { useBootstrap } from '@/ui/hooks/useBootstrap';
 import { useSearch } from '@/ui/hooks/useSearch';
 import { folderHue } from '@/ui/folderHue';
@@ -98,11 +99,7 @@ export default function App() {
               <button
                 type="button"
                 className="btn col-span-2 justify-start"
-                onClick={() => {
-                  const runtime = (globalThis as { chrome?: { runtime?: { sendMessage?(message: unknown): void } } }).chrome?.runtime;
-                  if (runtime?.sendMessage) runtime.sendMessage({ type: 'sbh:open-hub', focusSearch: false });
-                  else window.open('newtab.html', '_blank', 'noopener,noreferrer');
-                }}
+                onClick={() => void getBackend().openHub(false)}
               >
                 <LayoutDashboard size={13} aria-hidden="true" />
                 打开书签首页
@@ -145,7 +142,7 @@ export default function App() {
                       key={bookmark.id}
                       type="button"
                       className="result-row"
-                      onClick={(event) => void getBackend().openUrl(bookmark.url, event.ctrlKey || event.metaKey ? 'newTab' : 'current')}
+                      onClick={(event) => void openWithFeedback(bookmark.url, event.ctrlKey || event.metaKey ? 'newTab' : 'current')}
                       title={bookmark.url}
                     >
                       <Favicon url={bookmark.url} title={bookmark.title} size={18} />
