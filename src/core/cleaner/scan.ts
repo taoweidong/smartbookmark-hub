@@ -75,9 +75,12 @@ export async function runScan(opts: ScanOptions): Promise<ScanReport> {
   report.cancelled = false;
   report.finishedAt = undefined;
 
-  const doneIds = new Set(
-    [...report.deadLinks, ...report.blocked, ...report.errors].map((item) => item.bookmark.id),
-  );
+  // 续扫集合：失败项 + 已检测项（含 ok）。旧报告没有 checkedIds 时按旧语义仅由失败项反推
+  const checkedIds = (report.checkedIds ??= []);
+  const doneIds = new Set<string>([
+    ...checkedIds,
+    ...[...report.deadLinks, ...report.blocked, ...report.errors].map((item) => item.bookmark.id),
+  ]);
   report.checked = doneIds.size;
   report.cursor = report.checked;
 
@@ -110,6 +113,7 @@ export async function runScan(opts: ScanOptions): Promise<ScanReport> {
 
       if (health.status === 'skipped') return;
 
+      checkedIds.push(bookmark.id);
       report.checked += 1;
       report.cursor = report.checked;
 

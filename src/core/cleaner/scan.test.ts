@@ -146,3 +146,27 @@ describe('runScan', () => {
     expect(last.checked).toBe(5);
   });
 });
+describe('续扫 checkedIds 持久化（v2 R4.4）', () => {
+  it('续扫时已检测项（含 ok）不再重复请求，checked 单调不回退', async () => {
+    setBackend(createDemoBackend(seed()));
+    const controller = new AbortController();
+    // 并发 1：第一条 fetch 完成后立即取消，保证 checked=1 的确定性
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (controller.signal.aborted) return { status: 200, url } as Response;
+      const status = url.includes('dead.com') ? 404 : url.includes('blocked.com') ? 403 : 200;
+      if (!controller.signal.aborted) controller.abort();
+      return { status, url } as Response;
+    }) as unknown as typeof fetch;
+    const report1 = await runScan(options(fetchImpl, { concurrency: 1, signal: controller.signal }));
+    expect(report1.cancelled).toBe(true);
+    expect(report1.checked).toBe(1);
+
+    const fetchCalls = fetchImpl as unknown as { mock: { calls: unknown[] } };
+    const callsBefore = fetchCalls.mock.calls.length;
+    const report2 = await runScan(options(fetchImpl, { reportId: report1.id }));
+    expect(report2.cancelled).toBe(false);
+    expect(fetchCalls.mock.calls.length - callsBefore).toBe(report2.total - report1.checked);
+    expect(report2.checked).toBe(report2.total);
+    expect(report2.checkedIds).toHaveLength(report2.total);
+  });
+});

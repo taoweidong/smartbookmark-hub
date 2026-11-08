@@ -129,6 +129,8 @@ export interface ScanReport {
   emptyFolders: EmptyFolderRef[];
   cursor: number;
   cancelled: boolean;
+  /** 已检测（含 ok）的书签 id：续扫据此跳过，checked 单调不回退（v2 R4.4） */
+  checkedIds?: string[];
 }
 
 export interface TrashNode {
