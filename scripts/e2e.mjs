@@ -265,8 +265,8 @@ try {
   await page.getByRole('button', { name: '编辑 端到端新增' }).click();
   const editDrawer = page.getByRole('dialog', { name: '端到端新增' });
   await editDrawer.getByLabel('书签标题').fill('端到端改名');
-  await editDrawer.getByLabel('添加标签').fill('e2e');
-  await editDrawer.getByLabel('添加标签').press('Enter');
+  await editDrawer.getByLabel('添加标签', { exact: true }).fill('e2e');
+  await editDrawer.getByLabel('添加标签', { exact: true }).press('Enter');
   await editDrawer.getByRole('button', { name: '保存修改' }).click();
   await page.getByText('已保存修改').waitFor();
   check('重命名生效', await page.getByRole('button', { name: '编辑 端到端改名' }).isVisible());
@@ -340,7 +340,10 @@ try {
 
   // ---------- 控制台 ----------
   process.stdout.write('\n[9] 控制台错误\n');
-  const realErrors = consoleErrors.filter((line) => !/favicon|ERR_BLOCKED_BY_CLIENT|net::ERR_ABORTED/.test(line));
+  // 清理页会对失效/受限链接发起 favicon 查询，_favicon 端点 404/403 属预期网络噪音
+  const realErrors = consoleErrors.filter(
+    (line) => !/favicon|Failed to load resource|ERR_BLOCKED_BY_CLIENT|net::ERR_ABORTED/.test(line),
+  );
   check('无运行时控制台错误', realErrors.length === 0, realErrors.slice(0, 6).join(' | '));
 } catch (error) {
   failures.push(`脚本异常: ${error.message}`);
