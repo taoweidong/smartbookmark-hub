@@ -1,0 +1,153 @@
+import { getBackend } from '@/core/backend';
+import { flattenTree } from '@/core/bookmarks';
+import { APP_NAME } from '@/core/constants';
+import { buildEntries, searchAll } from '@/core/search';
+import { loadSettings } from '@/core/settings';
+import type { SearchEntry } from '@/core/types';
+import { parseSuggestionContent, toSuggestions } from './suggestions';
+
+let cachedEntries: SearchEntry[] | null = null;
+let cachedTagsKey = '';
+let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+let requestToken = 0;
+
+async function getEntries(): Promise<SearchEntry[]> {
+  const settings = await loadSettings();
+  const tagsKey = JSON.stringify(settings.tags);
+  if (cachedEntries && cachedTagsKey === tagsKey) return cachedEntries;
+  const tree = await getBackend().getTree();
+  cachedEntries = await buildEntries(flattenTree(tree), settings.tags);
+  cachedTagsKey = tagsKey;
+  return cachedEntries;
+}
+
+async function openHub(focusSearch: boolean, query?: string): Promise<void> {
+  const base = chrome.runtime.getURL('newtab.html');
+  const hash = query ? `#q=${encodeURIComponent(query)}` : focusSearch ? '#search' : '';
+  const target = `${base}${hash}`;
+  const tabs = await chrome.tabs.query({});
+  const existing = tabs.find((tab) => tab.url?.startsWith(base));
+  if (existing?.id !== undefined) {
+    await chrome.tabs.update(existing.id, { url: target, active: true });
+    if (existing.windowId !== undefined) await chrome.windows.update(existing.windowId, { focused: true });
+    return;
+  }
+  await chrome.tabs.create({ url: target });
+}
+
+async function registerMenus(): Promise<void> {
+  await chrome.contextMenus.removeAll();
+  chrome.contextMenus.create({
+    id: 'sbh-search-selection',
+    title: `用 ${APP_NAME} 搜索“%s”`,
+    contexts: ['selection'],
+  });
+  chrome.contextMenus.create({
+    id: 'sbh-save-page',
+    title: '收藏当前页到书签栏',
+    contexts: ['page'],
+  });
+  chrome.contextMenus.create({
+    id: 'sbh-open-hub',
+    title: `打开 ${APP_NAME} 首页`,
+    contexts: ['action'],
+  });
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  void registerMenus();
+  chrome.omnibox.setDefaultSuggestion({
+    description: `在 ${APP_NAME} 中搜索书签（优先）与历史 · 输入关键词开始`,
+  });
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  void registerMenus();
+});
+
+chrome.omnibox.onInputChanged.addListener((text, suggest) => {
+  if (debounceTimer) clearTimeout(debounceTimer);
+  const token = ++requestToken;
+  debounceTimer = setTimeout(() => {
+    void (async () => {
+      const trimmed = text.trim();
+      if (!trimmed) {
+        suggest([]);
+        return;
+      }
+      const settings = await loadSettings();
+      const entries = await getEntries();
+      const results = await searchAll(entries, trimmed, {
+        includeHistory: settings.search.includeHistory,
+        historyDays: settings.search.historyDays,
+        limit: 8,
+      });
+      if (token === requestToken) suggest(toSuggestions(results));
+    })();
+  }, 120);
+});
+
+chrome.omnibox.onInputEntered.addListener((content, disposition) => {
+  const parsed = parseSuggestionContent(content);
+  const openDisposition = disposition === 'currentTab' ? 'current' : 'newTab';
+  if (parsed.kind === 'web') {
+    void getBackend().webSearch(parsed.text, openDisposition);
+    return;
+  }
+  if (parsed.url) void getBackend().openUrl(parsed.url, openDisposition);
+});
+
+chrome.omnibox.onInputCancelled.addListener(() => {
+  requestToken += 1;
+  if (debounceTimer) clearTimeout(debounceTimer);
+});
+
+chrome.commands.onCommand.addListener((command) => {
+  if (command === 'open-hub') void openHub(false);
+  if (command === 'quick-search') void openHub(true);
+});
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === 'sbh-search-selection' && info.selectionText) {
+    void openHub(true, info.selectionText);
+    return;
+  }
+  if (info.menuItemId === 'sbh-open-hub') {
+    void openHub(false);
+    return;
+  }
+  if (info.menuItemId === 'sbh-save-page' && tab?.url) {
+    void (async () => {
+      await getBackend().create({ parentId: '1', title: tab.title || tab.url!, url: tab.url });
+      cachedEntries = null;
+      await chrome.action.setBadgeText({ text: '＋' });
+      await chrome.action.setBadgeBackgroundColor({ color: '#F2B33D' });
+      setTimeout(() => void chrome.action.setBadgeText({ text: '' }), 2500);
+    })();
+  }
+});
+
+for (const event of [
+  chrome.bookmarks.onCreated,
+  chrome.bookmarks.onRemoved,
+  chrome.bookmarks.onChanged,
+  chrome.bookmarks.onMoved,
+  chrome.bookmarks.onChildrenReordered,
+]) {
+  event.addListener(() => {
+    cachedEntries = null;
+  });
+}
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === 'sbh:open-hub') {
+    void openHub(Boolean(message.focusSearch), message.query).then(() => sendResponse({ ok: true }));
+    return true;
+  }
+  if (message?.type === 'sbh:invalidate') {
+    cachedEntries = null;
+    sendResponse({ ok: true });
+    return false;
+  }
+  return false;
+});

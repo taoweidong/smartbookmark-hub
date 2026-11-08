@@ -1,0 +1,57 @@
+{
+  "manifest_version": 3,
+  "name": "SmartBookmark Hub",
+  "version": "0.1.0",
+  "description": "书签优先的全局搜索、可视化首页与书签智能治理。所有数据仅保存在本地，绝不上传服务器。",
+  "minimum_chrome_version": "116",
+  "permissions": [
+    "bookmarks",
+    "history",
+    "storage",
+    "tabs",
+    "search",
+    "favicon",
+    "contextMenus"
+  ],
+  "optional_host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "SmartBookmark Hub",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_page": "options.html",
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
+  "omnibox": {
+    "keyword": "bm"
+  },
+  "commands": {
+    "open-hub": {
+      "suggested_key": { "default": "Ctrl+Shift+K" },
+      "description": "打开 SmartBookmark Hub 首页"
+    },
+    "quick-search": {
+      "suggested_key": { "default": "Ctrl+Shift+F", "mac": "Command+Shift+F" },
+      "description": "书签优先快速搜索"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: http:; connect-src 'self' https: http:; font-src 'self'; worker-src 'self'"
+  }
+}
