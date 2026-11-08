@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { FolderOpen } from 'lucide-react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import type { FlatBookmark, SearchEntry, SearchResult } from '@/core/types';
+import type { BookmarkNode, FlatBookmark, SearchEntry, SearchResult } from '@/core/types';
 import { store } from '@/core/store';
 import { getBackend } from '@/core/backend';
 import { SearchBox } from './components/SearchBox';
@@ -12,6 +12,8 @@ import { FolderPicker } from './components/FolderPicker';
 import { ThemeToggle } from './components/ThemeToggle';
 import { Modal, ConfirmDialog } from './components/Modal';
 import { EmptyState, Progress, StatTile } from './components/Feedback';
+import { Toasts } from './components/Toasts';
+import { TreeView, DRAG_MIME } from './components/TreeView';
 import { useSearch, type SearchController } from './hooks/useSearch';
 import type { FolderInfo } from '@/core/bookmarks';
 
@@ -440,5 +442,95 @@ describe('SearchBox + useSearch', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('Toasts', () => {
+  it('渲染消息，撤销回调并移除，关闭按钮可单独移除', () => {
+    const undo = vi.fn();
+    store.getState().pushToast({ message: '已删除 1 项，可在回收站恢复', tone: 'warning', undo });
+    store.getState().pushToast({ message: '已导出书签', tone: 'success' });
+    render(<Toasts />);
+
+    expect(screen.getByText('已删除 1 项，可在回收站恢复')).toBeInTheDocument();
+    expect(screen.getByText('已导出书签')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '撤销' }));
+    expect(undo).toHaveBeenCalledTimes(1);
+    expect(store.getState().toasts.some((toast) => toast.message.includes('已删除'))).toBe(false);
+    expect(screen.getByText('已导出书签')).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByLabelText('关闭提示')[0]);
+    expect(store.getState().toasts).toHaveLength(0);
+    expect(screen.queryByText('已导出书签')).not.toBeInTheDocument();
+  });
+});
+
+describe('TreeView', () => {
+  const tree: BookmarkNode[] = [
+    {
+      id: '0',
+      title: '根',
+      children: [
+        {
+          id: '1',
+          title: '书签栏',
+          children: [
+            {
+              id: 'f1',
+              title: '工作',
+              children: [
+                { id: 'f1a', title: '子目录', children: [{ id: 'b1', title: '页面', url: 'https://a.com/' }] },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ];
+
+  function setup() {
+    const onSelect = vi.fn();
+    const onDropInto = vi.fn();
+    render(<TreeView tree={tree} activeId="1" onSelect={onSelect} onDropInto={onDropInto} />);
+    return { onSelect, onDropInto };
+  }
+
+  it('渲染根级文件夹，点击选中', () => {
+    const { onSelect } = setup();
+    const bar = screen.getByRole('treeitem', { name: /书签栏/ });
+    fireEvent.click(bar);
+    expect(onSelect).toHaveBeenCalledWith('1');
+  });
+
+  it('展开箭头与方向键展开子级，再次收起', () => {
+    setup();
+    expect(screen.queryByRole('treeitem', { name: /子目录/ })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '展开 工作' }));
+    expect(screen.getByRole('treeitem', { name: /子目录/ })).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole('treeitem', { name: /工作/ }), { key: 'ArrowLeft' });
+    expect(screen.queryByRole('treeitem', { name: /子目录/ })).not.toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole('treeitem', { name: /工作/ }), { key: 'ArrowRight' });
+    expect(screen.getByRole('treeitem', { name: /子目录/ })).toBeInTheDocument();
+  });
+
+  it('拖放入文件夹时回调 dragId 与目标 id', () => {
+    const { onDropInto } = setup();
+    fireEvent.click(screen.getByRole('button', { name: '展开 工作' }));
+    const target = screen.getByRole('treeitem', { name: /子目录/ });
+    fireEvent.drop(target, {
+      dataTransfer: { getData: () => 'b1', types: [DRAG_MIME] },
+    });
+    expect(onDropInto).toHaveBeenCalledWith('b1', 'f1a');
+  });
+
+  it('拖到自己身上不回调', () => {
+    const { onDropInto } = setup();
+    fireEvent.drop(screen.getByRole('treeitem', { name: /工作/ }), {
+      dataTransfer: { getData: () => 'f1', types: [DRAG_MIME] },
+    });
+    expect(onDropInto).not.toHaveBeenCalled();
   });
 });
