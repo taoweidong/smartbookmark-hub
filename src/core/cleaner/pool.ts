@@ -14,17 +14,29 @@ export async function runPool<T, R>(
 
   let cursor = 0;
   let done = 0;
+  let failed = false;
   const width = Math.max(1, Math.min(Math.floor(size) || 1, items.length));
 
   const runner = async () => {
     for (;;) {
-      if (opts.signal?.aborted) return;
+      // 任一 worker 失败即标记终止：在飞任务结束后不再启动新任务（scan 靠 signal 收尾 I/O）
+      if (failed || opts.signal?.aborted) return;
       const index = cursor;
       cursor += 1;
       if (index >= items.length) return;
-      results[index] = await worker(items[index], index);
+      try {
+        results[index] = await worker(items[index], index);
+      } catch (error) {
+        failed = true;
+        throw error;
+      }
       done += 1;
-      opts.onProgress?.(done, items.length);
+      // 进度回调异常不应中断池
+      try {
+        opts.onProgress?.(done, items.length);
+      } catch {
+        // 忽略进度回调故障
+      }
     }
   };
 

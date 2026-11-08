@@ -73,3 +73,40 @@ describe('runPool', () => {
     ).rejects.toThrow('boom');
   });
 });
+describe('池失败终止（v2 R4）', () => {
+  it('worker 抛错后其余 runner 不再启动新任务', async () => {
+    const started: number[] = [];
+    let release!: () => void;
+    const blocker = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    const promise = runPool(
+      [1, 2, 3, 4],
+      2,
+      async (n) => {
+        started.push(n);
+        if (n === 1) await blocker;
+        if (n === 2) throw new Error('boom');
+        return n;
+      },
+    );
+
+    await vi.waitFor(() => expect(started).toContain(2));
+    release();
+    await expect(promise).rejects.toThrow('boom');
+    // 在飞任务结束后不再取新任务：3/4 都不应启动
+    expect(started).toEqual([1, 2]);
+  });
+
+  it('onProgress 回调抛异常不会中断池', async () => {
+    const seen: number[] = [];
+    const results = await runPool([1, 2, 3], 2, async (n) => n, {
+      onProgress: () => {
+        throw new Error('进度回调故障');
+      },
+    });
+    void seen;
+    expect(results).toEqual([1, 2, 3]);
+  });
+});
