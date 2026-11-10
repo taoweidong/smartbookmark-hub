@@ -157,7 +157,8 @@ export interface HistoryItem {
   lastVisitTime: number;
 }
 
-export type Disposition = 'current' | 'newTab' | 'newWindow';
+/** 打开方式：插件不再原地覆盖当前标签页，只允许新标签页/新窗口 */
+export type Disposition = 'newTab' | 'newWindow';
 
 export interface Toast {
   id: string;

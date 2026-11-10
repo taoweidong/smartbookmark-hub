@@ -68,8 +68,8 @@ export function Dashboard({
     return () => observer.disconnect();
   }, [sections]);
 
-  const open = (bookmark: FlatBookmark, newTab: boolean) => {
-    void openWithFeedback(bookmark.url, newTab ? 'newTab' : 'current');
+  const open = (bookmark: FlatBookmark) => {
+    void openWithFeedback(bookmark.url);
   };
 
   const jump = (id: string) => {

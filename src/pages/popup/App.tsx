@@ -65,110 +65,114 @@ export default function App() {
       <div className="grain-layer" aria-hidden="true" />
 
       <header className="relative z-20 flex-none border-b border-line px-3 py-2.5">
-        <div className="mb-2 flex items-center gap-2">
-          <BrandMark size={22} />
-          <span className="display text-[13px] text-text">快捷搜索</span>
-          <span className="mono ml-auto text-[9.5px] tracking-[0.1em] text-text-faint">
-            书签 › {includeHistory ? '历史 › ' : ''}网页
-          </span>
-          <ThemeToggle />
+        <div className="mx-auto w-full max-w-[900px]">
+          <div className="mb-2 flex items-center gap-2">
+            <BrandMark size={22} />
+            <span className="display text-[13px] text-text">快捷搜索</span>
+            <span className="mono ml-auto text-[9.5px] tracking-[0.1em] text-text-faint">
+              书签 › {includeHistory ? '历史 › ' : ''}网页
+            </span>
+            <ThemeToggle />
+          </div>
+          <SearchBox controller={search} size="sm" placeholder="书签 / 拼音首字母 / 网址 / 标签" />
         </div>
-        <SearchBox controller={search} size="sm" placeholder="书签 / 拼音首字母 / 网址 / 标签" />
       </header>
 
-      <div className="relative z-10 min-h-0 flex-1 overflow-y-auto px-3 py-2.5">
-        {search.query.trim() ? (
-          search.open ? (
-            <p className="px-1 py-3 text-[12px] text-text-faint">结果已在上方展开，用 ↑↓ 选择，Enter 打开。</p>
+      <div className="relative z-10 min-h-0 flex-[1_1_auto] overflow-y-auto px-3 py-2.5">
+        <div className="mx-auto w-full max-w-[900px]">
+          {search.query.trim() ? (
+            search.open ? (
+              <p className="px-1 py-3 text-[12px] text-text-faint">结果已在上方展开，用 ↑↓ 选择，Enter 新标签页打开。</p>
+            ) : (
+              <button type="button" className="btn btn-sm w-full" onClick={() => search.setOpen(true)}>
+                展开 {search.results.length} 条结果
+              </button>
+            )
           ) : (
-            <button type="button" className="btn btn-sm w-full" onClick={() => search.setOpen(true)}>
-              展开 {search.results.length} 条结果
-            </button>
-          )
-        ) : (
-          <>
-            <div className="grid grid-cols-2 gap-1.5">
-              <button type="button" className="btn btn-primary justify-start" disabled={saving} onClick={() => void saveCurrent()}>
-                <BookmarkPlus size={13} aria-hidden="true" />
-                {saving ? '收藏中…' : '收藏当前页'}
-              </button>
-              <button type="button" className="btn justify-start" onClick={() => void getBackend().openOptions()}>
-                <Settings2 size={13} aria-hidden="true" />
-                管理台
-              </button>
-              <button
-                type="button"
-                className="btn col-span-2 justify-start"
-                onClick={() => void getBackend().openHub(false)}
-              >
-                <LayoutDashboard size={13} aria-hidden="true" />
-                打开书签首页
-                <ChevronRight size={12} className="ml-auto" aria-hidden="true" />
-              </button>
-            </div>
+            <>
+              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                <button type="button" className="btn btn-primary justify-start" disabled={saving} onClick={() => void saveCurrent()}>
+                  <BookmarkPlus size={13} aria-hidden="true" />
+                  {saving ? '收藏中…' : '收藏当前页'}
+                </button>
+                <button type="button" className="btn justify-start" onClick={() => void getBackend().openOptions()}>
+                  <Settings2 size={13} aria-hidden="true" />
+                  管理台
+                </button>
+                <button
+                  type="button"
+                  className="btn col-span-2 justify-start"
+                  onClick={() => void getBackend().openHub(false)}
+                >
+                  <LayoutDashboard size={13} aria-hidden="true" />
+                  打开书签首页
+                  <ChevronRight size={12} className="ml-auto" aria-hidden="true" />
+                </button>
+              </div>
 
-            {recentQueries.length > 0 && (
+              {recentQueries.length > 0 && (
+                <div className="mt-3">
+                  <div className="mb-1.5 flex items-center gap-1.5">
+                    <History size={11} className="text-text-faint" aria-hidden="true" />
+                    <span className="label">最近搜索</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {recentQueries.slice(0, 6).map((query) => (
+                      <button key={query} type="button" className="chip hover:text-accent" onClick={() => search.change(query)}>
+                        {query}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="mt-3">
                 <div className="mb-1.5 flex items-center gap-1.5">
-                  <History size={11} className="text-text-faint" aria-hidden="true" />
-                  <span className="label">最近搜索</span>
+                  <Sparkles size={11} className="text-accent" aria-hidden="true" />
+                  <span className="label">最近添加</span>
+                  <span className="mono ml-auto text-[10px] text-text-faint">{flat.length}</span>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {recentQueries.slice(0, 6).map((query) => (
-                    <button key={query} type="button" className="chip hover:text-accent" onClick={() => search.change(query)}>
-                      {query}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="mt-3">
-              <div className="mb-1.5 flex items-center gap-1.5">
-                <Sparkles size={11} className="text-accent" aria-hidden="true" />
-                <span className="label">最近添加</span>
-                <span className="mono ml-auto text-[10px] text-text-faint">{flat.length}</span>
-              </div>
-              {loading ? (
-                <div className="space-y-1.5">
-                  {Array.from({ length: 4 }, (_, index) => (
-                    <div key={index} className="skeleton h-[38px]" />
-                  ))}
-                </div>
-              ) : recent.length ? (
-                <div className="space-y-0.5">
-                  {recent.map((bookmark) => (
-                    <button
-                      key={bookmark.id}
-                      type="button"
-                      className="result-row"
-                      onClick={(event) => void openWithFeedback(bookmark.url, event.ctrlKey || event.metaKey ? 'newTab' : 'current')}
-                      title={bookmark.url}
-                    >
-                      <Favicon url={bookmark.url} title={bookmark.title} size={18} />
-                      <span className="min-w-0 flex-1">
-                        <span className="clamp-1 block text-[12px] text-text-dim">{bookmark.title}</span>
-                        <span className="mono clamp-1 block text-[10px] text-text-faint">{displayUrl(bookmark.url)}</span>
-                      </span>
-                      <span
-                        className="mono shrink-0 text-[9.5px]"
-                        style={{ color: folderHue(bookmark.parentId) }}
+                {loading ? (
+                  <div className="space-y-1.5">
+                    {Array.from({ length: 4 }, (_, index) => (
+                      <div key={index} className="skeleton h-[38px]" />
+                    ))}
+                  </div>
+                ) : recent.length ? (
+                  <div className="flex flex-col gap-0.5 sm:grid sm:grid-cols-2 sm:gap-1.5 xl:grid-cols-3">
+                    {recent.map((bookmark) => (
+                      <button
+                        key={bookmark.id}
+                        type="button"
+                        className="result-row"
+                        onClick={() => void openWithFeedback(bookmark.url)}
+                        title={bookmark.url}
                       >
-                        {timeAgo(bookmark.dateAdded)}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <p className="px-1 py-3 text-[12px] text-text-faint">还没有书签，先收藏当前页面试试。</p>
-              )}
-            </div>
-          </>
-        )}
+                        <Favicon url={bookmark.url} title={bookmark.title} size={18} />
+                        <span className="min-w-0 flex-1">
+                          <span className="clamp-1 block text-[12px] text-text-dim">{bookmark.title}</span>
+                          <span className="mono clamp-1 block text-[10px] text-text-faint">{displayUrl(bookmark.url)}</span>
+                        </span>
+                        <span
+                          className="mono shrink-0 text-[9.5px]"
+                          style={{ color: folderHue(bookmark.parentId) }}
+                        >
+                          {timeAgo(bookmark.dateAdded)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="px-1 py-3 text-[12px] text-text-faint">还没有书签，先收藏当前页面试试。</p>
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       <footer className="relative z-10 flex-none border-t border-line px-3 py-1.5">
-        <span className="mono text-[9.5px] text-text-faint">↑↓ 选择 · Enter 打开 · Ctrl+Enter 新标签页 · Esc 关闭</span>
+        <span className="mono text-[9.5px] text-text-faint">↑↓ 选择 · Enter 新标签页打开 · Esc 关闭</span>
       </footer>
 
       <Toasts compact />

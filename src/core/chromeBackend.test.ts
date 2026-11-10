@@ -60,10 +60,11 @@ describe('chromeBackend 适配层', () => {
     });
 
     it('openOptions 在 lastError 存在时 reject', async () => {
-      mock.runtime.openOptionsPage.mockImplementation((cb) => {
+      mock.tabs.create.mockImplementation((_props, cb) => {
         mock.runtime.lastError = { message: '无法打开设置页' };
-        cb();
+        cb?.({});
         mock.runtime.lastError = undefined;
+        return undefined;
       });
       await expect(backend.openOptions()).rejects.toThrow('无法打开设置页');
     });
@@ -143,7 +144,7 @@ describe('chromeBackend 适配层', () => {
     });
   });
 
-  describe('openUrl 三种打开方式', () => {
+  describe('openUrl 只允许新标签页/新窗口', () => {
     it('newWindow 走 windows.create，不查询标签', async () => {
       await backend.openUrl('https://a.com/', 'newWindow');
       expect(mock.windows.create).toHaveBeenCalledWith({ url: 'https://a.com/' }, expect.any(Function));
@@ -157,58 +158,29 @@ describe('chromeBackend 适配层', () => {
       expect(mock.tabs.update).not.toHaveBeenCalled();
     });
 
-    it('current 更新当前活动标签', async () => {
+    it('不再更新当前标签：任何打开方式都不调用 tabs.update', async () => {
       stubTabsQuery(mock, [{ id: 11, url: 'https://old.com/', active: true }]);
-      await backend.openUrl('https://a.com/', 'current');
-      expect(mock.tabs.query).toHaveBeenCalledWith({ active: true, currentWindow: true }, expect.any(Function));
-      expect(mock.tabs.update).toHaveBeenCalledWith(11, { url: 'https://a.com/' }, expect.any(Function));
-      expect(mock.tabs.create).not.toHaveBeenCalled();
-    });
-
-    it('current 查不到活动标签时兜底新建标签', async () => {
-      stubTabsQuery(mock, []);
-      await backend.openUrl('https://a.com/', 'current');
-      expect(mock.tabs.create).toHaveBeenCalledWith({ url: 'https://a.com/', active: true }, expect.any(Function));
+      await backend.openUrl('https://a.com/', 'newTab');
       expect(mock.tabs.update).not.toHaveBeenCalled();
-    });
-
-    it('current 活动标签缺少 id 时同样兜底新建', async () => {
-      stubTabsQuery(mock, [{ url: 'https://old.com/' }]);
-      await backend.openUrl('https://a.com/', 'current');
-      expect(mock.tabs.create).toHaveBeenCalledWith({ url: 'https://a.com/', active: true }, expect.any(Function));
+      expect(mock.tabs.query).not.toHaveBeenCalled();
     });
   });
 
-  describe('webSearch', () => {
-    it('有 chrome.search 时 newTab 映射为 NEW_TAB', async () => {
-      await backend.webSearch('你好', 'newTab');
+  describe('webSearch 一律新标签页', () => {
+    it('有 chrome.search 时映射为 NEW_TAB', async () => {
+      await backend.webSearch('你好');
       expect(mock.search.query).toHaveBeenCalledWith({ text: '你好', disposition: 'NEW_TAB' });
       expect(mock.tabs.create).not.toHaveBeenCalled();
     });
 
-    it('有 chrome.search 时 current 映射为 CURRENT_TAB', async () => {
-      await backend.webSearch('你好', 'current');
-      expect(mock.search.query).toHaveBeenCalledWith({ text: '你好', disposition: 'CURRENT_TAB' });
-    });
-
     it('缺少 chrome.search 时回退 Google URL（newTab，含编码）', async () => {
       Reflect.deleteProperty(mock, 'search');
-      await backend.webSearch('a&b c', 'newTab');
+      await backend.webSearch('a&b c');
       expect(mock.tabs.create).toHaveBeenCalledWith(
         { url: `https://www.google.com/search?q=${encodeURIComponent('a&b c')}`, active: true },
         expect.any(Function),
       );
-    });
-
-    it('缺少 chrome.search 时回退 Google URL（current 更新活动标签）', async () => {
-      Reflect.deleteProperty(mock, 'search');
-      stubTabsQuery(mock, [{ id: 3 }]);
-      await backend.webSearch('a&b c', 'current');
-      expect(mock.tabs.update).toHaveBeenCalledWith(
-        3,
-        { url: `https://www.google.com/search?q=${encodeURIComponent('a&b c')}` },
-        expect.any(Function),
-      );
+      expect(mock.tabs.update).not.toHaveBeenCalled();
     });
   });
 
@@ -259,9 +231,13 @@ describe('chromeBackend 适配层', () => {
       expect(mock.permissions.remove).toHaveBeenCalledWith(origins);
     });
 
-    it('openOptions 调用 runtime.openOptionsPage', async () => {
+    it('openOptions 新建标签页打开管理台，不复用已有标签', async () => {
       await expect(backend.openOptions()).resolves.toBeUndefined();
-      expect(mock.runtime.openOptionsPage).toHaveBeenCalledWith(expect.any(Function));
+      expect(mock.tabs.create).toHaveBeenCalledWith(
+        { url: 'chrome-extension://mock-extension-id/options.html', active: true },
+        expect.any(Function),
+      );
+      expect(mock.runtime.openOptionsPage).not.toHaveBeenCalled();
     });
   });
 

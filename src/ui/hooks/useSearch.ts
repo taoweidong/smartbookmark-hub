@@ -3,7 +3,7 @@ import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
 import { getBackend } from '@/core/backend';
 import { rememberQuery } from '@/core/settings';
 import { store, useApp } from '@/core/store';
-import type { Disposition, SearchResult } from '@/core/types';
+import type { SearchResult } from '@/core/types';
 
 export interface SearchController {
   query: string;
@@ -17,7 +17,7 @@ export interface SearchController {
   focus(): void;
   setOpen(value: boolean): void;
   setActiveIndex(index: number): void;
-  activate(result: SearchResult, disposition?: Disposition): Promise<void>;
+  activate(result: SearchResult): Promise<void>;
   onKeyDown(event: ReactKeyboardEvent<HTMLInputElement>): void;
 }
 
@@ -76,14 +76,14 @@ export function useSearch(initialQuery = ''): SearchController {
   }, []);
 
   const activate = useCallback(
-    async (result: SearchResult, disposition: Disposition = 'current') => {
+    async (result: SearchResult) => {
       const backend = getBackend();
       const text = store.getState().query.trim();
       setOpen(false);
       inputRef.current?.blur();
       try {
-        if (result.kind === 'web') await backend.webSearch(text, disposition === 'current' ? 'current' : 'newTab');
-        else await backend.openUrl(result.url, disposition);
+        if (result.kind === 'web') await backend.webSearch(text);
+        else await backend.openUrl(result.url, 'newTab');
         if (text) {
           const settings = await rememberQuery(text);
           store.setState({ settings });
@@ -115,18 +115,17 @@ export function useSearch(initialQuery = ''): SearchController {
         if (timer.current === null) {
           const list = store.getState().results;
           const target = list[activeIndex] ?? list[0];
-          if (target) void activate(target, event.ctrlKey || event.metaKey ? 'newTab' : 'current');
+          if (target) void activate(target);
           return;
         }
         // 防抖窗口内回车：先冲刷当前查询，再打开最新结果的首条，避免打开上一条查询的结果
         clearTimeout(timer.current);
         timer.current = null;
-        const withModifier = event.ctrlKey || event.metaKey;
         void (async () => {
           const query = store.getState().query.trim();
           if (query) await store.getState().runSearch(query);
           const target = store.getState().results[0];
-          if (target) await activate(target, withModifier ? 'newTab' : 'current');
+          if (target) await activate(target);
         })();
         return;
       }

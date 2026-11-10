@@ -82,31 +82,16 @@ export function createChromeBackend(): Backend {
         await invoke<void>((cb) => chrome.windows.create({ url }, () => cb()));
         return;
       }
-      if (disposition === 'newTab') {
-        await invoke<void>((cb) => chrome.tabs.create({ url, active: true }, () => cb()));
-        return;
-      }
-      const tabs = await invoke<chrome.tabs.Tab[]>((cb) =>
-        chrome.tabs.query({ active: true, currentWindow: true }, cb),
-      );
-      const tabId = tabs[0]?.id;
-      if (tabId === undefined) {
-        await invoke<void>((cb) => chrome.tabs.create({ url, active: true }, () => cb()));
-        return;
-      }
-      await invoke<void>((cb) => chrome.tabs.update(tabId, { url }, () => cb()));
+      await invoke<void>((cb) => chrome.tabs.create({ url, active: true }, () => cb()));
     },
 
-    async webSearch(text: string, disposition: 'current' | 'newTab') {
+    async webSearch(text: string) {
       if (chrome.search?.query) {
-        await chrome.search.query({
-          text,
-          disposition: disposition === 'newTab' ? 'NEW_TAB' : 'CURRENT_TAB',
-        });
+        await chrome.search.query({ text, disposition: 'NEW_TAB' });
         return;
       }
       const url = `https://www.google.com/search?q=${encodeURIComponent(text)}`;
-      await this.openUrl(url, disposition === 'newTab' ? 'newTab' : 'current');
+      await this.openUrl(url, 'newTab');
     },
 
     async currentTab() {
@@ -133,7 +118,12 @@ export function createChromeBackend(): Backend {
     requestHostPermission: () => chrome.permissions.request({ origins: ['<all_urls>'] }),
     removeHostPermission: () => chrome.permissions.remove({ origins: ['<all_urls>'] }),
 
-    openOptions: () => invokeVoid((cb) => chrome.runtime.openOptionsPage(cb)),
+    // 管理台永远开新标签页：复用已有标签会把用户的面板刷新掉
+    async openOptions() {
+      await invoke<void>((cb) =>
+        chrome.tabs.create({ url: chrome.runtime.getURL('options.html'), active: true }, () => cb()),
+      );
+    },
 
     async openHub(focusSearch: boolean) {
       try {

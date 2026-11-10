@@ -32,14 +32,8 @@ async function openHub(focusSearch: boolean, query?: string): Promise<void> {
   const base = chrome.runtime.getURL('newtab.html');
   const hash = query ? `#q=${encodeURIComponent(query)}` : focusSearch ? '#search' : '';
   const target = `${base}${hash}`;
-  const tabs = await chrome.tabs.query({});
-  const existing = tabs.find((tab) => tab.url?.startsWith(base));
-  if (existing?.id !== undefined) {
-    await chrome.tabs.update(existing.id, { url: target, active: true });
-    if (existing.windowId !== undefined) await chrome.windows.update(existing.windowId, { focused: true });
-    return;
-  }
-  await chrome.tabs.create({ url: target });
+  // 始终新建标签页：复用已有首页标签会打断用户当前的操作现场
+  await chrome.tabs.create({ url: target, active: true });
 }
 
 async function registerMenus(): Promise<void> {
@@ -101,16 +95,15 @@ chrome.omnibox.onInputChanged.addListener((text, suggest) => {
   }, 120);
 });
 
-chrome.omnibox.onInputEntered.addListener((content, disposition) => {
+chrome.omnibox.onInputEntered.addListener((content) => {
   const parsed = parseSuggestionContent(content);
-  const openDisposition = disposition === 'currentTab' ? 'current' : 'newTab';
   if (parsed.kind === 'web' || parsed.kind === 'text') {
     const text = parsed.text.trim();
     // 自由文本回车走默认搜索引擎兜底，绝不把原始文本当 URL 打开
-    if (text) void getBackend().webSearch(text, openDisposition).catch(() => {});
+    if (text) void getBackend().webSearch(text).catch(() => {});
     return;
   }
-  void getBackend().openUrl(parsed.url, openDisposition).catch(() => {});
+  void getBackend().openUrl(parsed.url, 'newTab').catch(() => {});
 });
 
 chrome.omnibox.onInputCancelled.addListener(() => {

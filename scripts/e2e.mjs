@@ -229,6 +229,14 @@ try {
   check('首页展示勾选的工作文件夹', true);
   check('首页展示学习文件夹', await page.getByRole('heading', { name: '学习', exact: true }).isVisible());
   check('首页卡片渲染书签', await page.getByRole('button', { name: '打开 项目看板' }).first().isVisible());
+  // 首页书签必须开新标签页：原地打开会直接替换掉用户正在看的首页
+  const cardOpened = context.waitForEvent('page');
+  await page.getByRole('button', { name: '打开 项目看板' }).first().click();
+  const cardTarget = await cardOpened;
+  await cardTarget.waitForLoadState('domcontentloaded');
+  check('首页书签在新标签页打开', cardTarget.url().startsWith(base));
+  check('首页未被原地替换', page.url() === hub);
+  await cardTarget.close();
   await noOverflow(page, '首页 1280');
   await shot(page, 'newtab-1280');
 
@@ -282,10 +290,11 @@ try {
   await searchInput.fill('项目');
   await page.getByRole('listbox', { name: '搜索结果' }).waitFor();
   const opened = context.waitForEvent('page');
-  await searchInput.press('Control+Enter');
+  await searchInput.press('Enter');
   const openedPage = await opened;
   await openedPage.waitForLoadState('domcontentloaded');
-  check('Ctrl+Enter 新标签页打开书签', openedPage.url().startsWith(base));
+  check('Enter 一律新标签页打开书签', openedPage.url().startsWith(base));
+  check('原页签未被原地替换', page.url() === hub);
   await openedPage.close();
   await searchInput.press('Escape');
 
@@ -359,12 +368,51 @@ try {
   await popupPage.setViewportSize({ width: 360, height: 560 });
   await popupPage.goto(popup);
   await popupPage.getByRole('combobox', { name: '全局搜索' }).waitFor();
+
+  // 管理台必须开新标签页：复用已有标签会把用户正在用的面板刷新掉
+  const optionsOpened = context.waitForEvent('page');
+  await popupPage.getByRole('button', { name: /管理台/ }).click();
+  const optionsTab = await optionsOpened;
+  await optionsTab.waitForLoadState('domcontentloaded');
+  check('管理台在新标签页打开', optionsTab.url().includes('options.html'));
+  await optionsTab.close();
+  await popupPage.bringToFront();
+
   await popupPage.getByRole('combobox', { name: '全局搜索' }).fill('项目');
   await popupPage.getByRole('listbox', { name: '搜索结果' }).waitFor();
   check('弹窗搜索命中', (await popupPage.getByRole('option').first().textContent()).includes('项目看板'));
   await noOverflow(popupPage, '弹窗 360');
   await shot(popupPage, 'popup-360');
   await popupPage.close();
+
+  // ---------- 弹窗在标签页形态自适应宽度 ----------
+  process.stdout.write('\n[7.5] 弹窗宽屏自适应\n');
+  const widePopup = await context.newPage();
+  await widePopup.setViewportSize({ width: 1280, height: 800 });
+  await widePopup.goto(popup);
+  await widePopup.getByRole('combobox', { name: '全局搜索' }).waitFor();
+  const wideMetrics = await widePopup.evaluate(() => {
+    const root = document.getElementById('root');
+    const column = document.querySelector('#root .max-w-\\[900px\\]');
+    const rect = column?.getBoundingClientRect();
+    return {
+      layout: document.documentElement.dataset.sbhLayout,
+      rootWidth: root ? Math.round(root.getBoundingClientRect().width) : 0,
+      viewport: window.innerWidth,
+      columnWidth: rect ? Math.round(rect.width) : 0,
+      columnLeft: rect ? Math.round(rect.left) : 0,
+    };
+  });
+  check('弹窗识别为标签页形态', wideMetrics.layout === 'tab', JSON.stringify(wideMetrics));
+  check('弹窗铺满标签页宽度，无留白', wideMetrics.rootWidth >= wideMetrics.viewport - 2, JSON.stringify(wideMetrics));
+  check(
+    '弹窗内容列收敛并居中',
+    wideMetrics.columnWidth <= 902 && Math.abs(wideMetrics.columnLeft - (wideMetrics.viewport - wideMetrics.columnWidth) / 2) <= 2,
+    JSON.stringify(wideMetrics),
+  );
+  await noOverflow(widePopup, '弹窗 1280');
+  await shot(widePopup, 'popup-1280');
+  await widePopup.close();
 
   // ---------- 宽屏 ----------
   process.stdout.write('\n[8] 1920x1080 布局\n');

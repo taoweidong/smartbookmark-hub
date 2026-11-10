@@ -7,7 +7,14 @@
     <style>
       html { background: #070b18; color-scheme: dark; }
       html.light { background: #f4f1e8; color-scheme: light; }
-      body { width: 360px; height: 560px; margin: 0; overflow: hidden; }
+      /* 弹窗形态：宽 360，高度随内容自适应（上限 600，超出由中部区域滚动） */
+      html { height: auto; }
+      html body { width: 360px; max-width: 100vw; height: auto; max-height: 600px; margin: 0; overflow: hidden; }
+      html body #root { height: auto; max-height: 600px; }
+      /* 标签页形态：铺满可用空间，按窗口宽度自适应排布 */
+      html[data-sbh-layout='tab'] { height: 100%; }
+      html[data-sbh-layout='tab'] body { width: 100%; max-width: none; height: 100%; max-height: none; }
+      html[data-sbh-layout='tab'] body #root { height: 100%; max-height: none; }
     </style>
     <script src="/theme-boot.js"></script>
   </head>

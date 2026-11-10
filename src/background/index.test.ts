@@ -167,12 +167,16 @@ describe('background service worker', () => {
   });
 
   describe('onInputEntered', () => {
-    it('URL 建议 + currentTab 更新当前活动标签', async () => {
+    it('URL 建议一律新标签页打开，不动当前标签', async () => {
       await loadBackground();
       stubTabsQuery(mock, [{ id: 5, url: 'https://old.com/', active: true }]);
       mock.omnibox.onInputEntered.trigger('https://www.zhihu.com/q/1', 'currentTab');
       await flush();
-      expect(mock.tabs.update.mock.calls[0].slice(0, 2)).toEqual([5, { url: 'https://www.zhihu.com/q/1' }]);
+      expect(mock.tabs.create).toHaveBeenCalledWith(
+        { url: 'https://www.zhihu.com/q/1', active: true },
+        expect.any(Function),
+      );
+      expect(mock.tabs.update).not.toHaveBeenCalled();
       expect(mock.search.query).not.toHaveBeenCalled();
     });
 
@@ -184,30 +188,29 @@ describe('background service worker', () => {
       expect(mock.tabs.update).not.toHaveBeenCalled();
     });
 
-    it('web 前缀建议 + currentTab 还原查询词走 CURRENT_TAB', async () => {
+    it('web 前缀建议还原查询词并走 NEW_TAB', async () => {
       await loadBackground();
       mock.omnibox.onInputEntered.trigger(`${WEB_PREFIX}关键词`, 'currentTab');
       await flush();
-      expect(mock.search.query).toHaveBeenCalledWith({ text: '关键词', disposition: 'CURRENT_TAB' });
+      expect(mock.search.query).toHaveBeenCalledWith({ text: '关键词', disposition: 'NEW_TAB' });
     });
   });
 
   describe('openHub（commands 与右键菜单）', () => {
-    it('open-hub 命令复用已有首页标签并聚焦窗口', async () => {
+    it('open-hub 命令总是新建首页标签，不复用已有标签', async () => {
       await loadBackground();
       stubTabsQuery(mock, [{ id: 9, windowId: 4, url: `${BASE_URL}#old` }]);
       mock.commands.onCommand.trigger('open-hub');
       await flush();
-      expect(mock.tabs.update).toHaveBeenCalledWith(9, { url: BASE_URL, active: true });
-      expect(mock.windows.update).toHaveBeenCalledWith(4, { focused: true });
-      expect(mock.tabs.create).not.toHaveBeenCalled();
+      expect(mock.tabs.create).toHaveBeenCalledWith({ url: BASE_URL, active: true });
+      expect(mock.tabs.update).not.toHaveBeenCalled();
     });
 
-    it('quick-search 命令无已有标签时新建带 #search 的标签', async () => {
+    it('quick-search 命令新建带 #search 的标签', async () => {
       await loadBackground();
       mock.commands.onCommand.trigger('quick-search');
       await flush();
-      expect(mock.tabs.create).toHaveBeenCalledWith({ url: `${BASE_URL}#search` });
+      expect(mock.tabs.create).toHaveBeenCalledWith({ url: `${BASE_URL}#search`, active: true });
       expect(mock.tabs.update).not.toHaveBeenCalled();
     });
 
@@ -218,14 +221,14 @@ describe('background service worker', () => {
         undefined,
       );
       await flush();
-      expect(mock.tabs.create).toHaveBeenCalledWith({ url: `${BASE_URL}#q=a%20b%26c` });
+      expect(mock.tabs.create).toHaveBeenCalledWith({ url: `${BASE_URL}#q=a%20b%26c`, active: true });
     });
 
     it('右键打开首页不带 hash', async () => {
       await loadBackground();
       mock.contextMenus.onClicked.trigger({ menuItemId: 'sbh-open-hub' }, undefined);
       await flush();
-      expect(mock.tabs.create).toHaveBeenCalledWith({ url: BASE_URL });
+      expect(mock.tabs.create).toHaveBeenCalledWith({ url: BASE_URL, active: true });
     });
   });
 
@@ -311,13 +314,16 @@ describe('background service worker', () => {
       expect(keepAlive).toBe(true);
       expect(sendResponse).not.toHaveBeenCalled();
       await flush();
-      expect(mock.tabs.create).toHaveBeenCalledWith({ url: `${BASE_URL}#q=${encodeURIComponent('你好')}` });
+      expect(mock.tabs.create).toHaveBeenCalledWith({
+        url: `${BASE_URL}#q=${encodeURIComponent('你好')}`,
+        active: true,
+      });
       expect(sendResponse).toHaveBeenCalledWith({ ok: true });
     });
 
     it('sbh:open-hub 失败也应答 ok:false', async () => {
       await loadBackground();
-      mock.tabs.query.mockImplementation(() => Promise.reject(new Error('tabs 不可用')));
+      mock.tabs.create.mockImplementation(() => Promise.reject(new Error('tabs 不可用')));
       const listener = mock.runtime.onMessage.listeners[0];
       const sendResponse = vi.fn();
       expect(listener({ type: 'sbh:open-hub' }, {}, sendResponse)).toBe(true);
@@ -389,7 +395,12 @@ describe('omnibox 健壮性与缓存代次（v2 R4.2）', () => {
 
   it('onInputEntered 打开失败时静默降级，不产生 unhandled rejection', async () => {
     await loadBackground();
-    mock.tabs.query.mockImplementation(() => Promise.reject(new Error('tabs 故障')));
+    mock.tabs.create.mockImplementation((_props, cb) => {
+      mock.runtime.lastError = { message: 'tabs 故障' };
+      cb?.({});
+      mock.runtime.lastError = undefined;
+      return undefined;
+    });
     expect(() =>
       mock.omnibox.onInputEntered.trigger('https://www.zhihu.com/q/1', 'currentTab'),
     ).not.toThrow();

@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getBackend } from '@/core/backend';
+import { demoOpened } from '@/core/demoBackend';
 import { store } from '@/core/store';
 import { buildEntries } from '@/core/search';
 import { flattenTree } from '@/core/bookmarks';
@@ -45,7 +46,7 @@ describe('popup App', () => {
     expect(screen.getByRole('button', { name: /收藏当前页/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /管理台/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /打开书签首页/ })).toBeInTheDocument();
-    expect(screen.getByText(/Enter 打开/)).toBeInTheDocument();
+    expect(screen.getByText(/Enter 新标签页打开/)).toBeInTheDocument();
   });
 
   it('展示最近添加的书签并按时间倒序', async () => {
@@ -99,6 +100,25 @@ describe('popup App', () => {
     fireEvent.click(button);
     await waitFor(() =>
       expect(store.getState().flat.every((item) => item.url !== 'https://developer.chrome.com/docs/extensions')).toBe(true),
+    );
+  });
+
+  it('最近添加的书签点击后在新标签页打开', async () => {
+    await act(async () => {
+      render(<App />);
+    });
+    await act(async () => {
+      store.setState({
+        flat: [
+          { id: 'b1', title: '知乎', url: 'https://www.zhihu.com/', parentId: '1', folderPath: ['书签栏'], dateAdded: Date.now() },
+        ],
+        loading: false,
+      });
+    });
+    demoOpened.length = 0;
+    fireEvent.click(screen.getByText('zhihu.com'));
+    await waitFor(() =>
+      expect(demoOpened).toEqual([{ url: 'https://www.zhihu.com/', disposition: 'newTab' }]),
     );
   });
 

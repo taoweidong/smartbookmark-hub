@@ -314,7 +314,7 @@ describe('openUrl / webSearch / openOptions', () => {
   it('webSearch 记录编码后的搜索 URL 与 web: 前缀 disposition', async () => {
     const open = vi.spyOn(window, 'open').mockImplementation(() => null);
     const backend = createDemoBackend();
-    await backend.webSearch('书签 管理', 'newTab');
+    await backend.webSearch('书签 管理');
     expect(demoOpened).toEqual([
       { url: `https://www.google.com/search?q=${encodeURIComponent('书签 管理')}`, disposition: 'web:newTab' },
     ]);

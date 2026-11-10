@@ -103,12 +103,11 @@ export function SearchBox({
                 activeIndex={activeIndex}
                 compact={size === 'sm'}
                 onHover={controller.setActiveIndex}
-                onPick={(result, newTab) => void controller.activate(result, newTab ? 'newTab' : 'current')}
+                onPick={(result) => void controller.activate(result)}
               />
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-line bg-bg px-3 py-2 text-[10.5px] text-text-faint">
                 <span className="mono">↑↓ 选择</span>
-                <span className="mono">Enter 打开</span>
-                <span className="mono">Ctrl+Enter 新标签页</span>
+                <span className="mono">Enter 新标签页打开</span>
                 <span className="mono">Esc 关闭</span>
                 <span className="ml-auto flex items-center gap-2">
                   <span style={{ color: 'var(--accent)' }}>书签 {bookmarkCount}</span>

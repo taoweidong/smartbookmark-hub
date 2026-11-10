@@ -20,7 +20,7 @@ export interface BookmarkCardProps {
   status?: LinkStatus;
   selected?: boolean;
   selectable?: boolean;
-  onOpen(bookmark: FlatBookmark, newTab: boolean): void;
+  onOpen(bookmark: FlatBookmark): void;
   onEdit?(bookmark: FlatBookmark): void;
   onDelete?(bookmark: FlatBookmark): void;
   onSelect?(id: string, additive: boolean): void;
@@ -62,18 +62,18 @@ export function BookmarkCard({
           onSelect?.(bookmark.id, true);
           return;
         }
-        onOpen(bookmark, event.ctrlKey || event.metaKey || event.button === 1);
+        onOpen(bookmark);
       }}
       onAuxClick={(event) => {
         if (event.button === 1) {
           event.preventDefault();
-          onOpen(bookmark, true);
+          onOpen(bookmark);
         }
       }}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
-          onOpen(bookmark, event.ctrlKey || event.metaKey);
+          onOpen(bookmark);
         }
       }}
       role="button"
@@ -136,7 +136,7 @@ export function BookmarkCard({
             aria-label={`在新标签页打开 ${bookmark.title}`}
             onClick={(event) => {
               event.stopPropagation();
-              onOpen(bookmark, true);
+              onOpen(bookmark);
             }}
           >
             <ExternalLink size={12} aria-hidden="true" />

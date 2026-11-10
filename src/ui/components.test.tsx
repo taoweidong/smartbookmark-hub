@@ -271,7 +271,7 @@ describe('ResultList', () => {
     expect(document.querySelector('mark')?.textContent).toBe('知乎');
 
     fireEvent.click(screen.getAllByRole('option')[1]);
-    expect(onPick).toHaveBeenCalledWith(results[1], false);
+    expect(onPick).toHaveBeenCalledWith(results[1]);
     fireEvent.mouseEnter(screen.getAllByRole('option')[2]);
     expect(onHover).toHaveBeenCalledWith(2);
   });
@@ -302,19 +302,19 @@ describe('BookmarkCard', () => {
     expect(screen.getByLabelText('链接失效')).toBeInTheDocument();
   });
 
-  it('普通点击打开当前标签，Ctrl 点击新标签', () => {
+  it('点击、Ctrl 点击与新标签按钮一律走新标签页打开', () => {
     const onOpen = vi.fn();
     render(<BookmarkCard bookmark={bookmark} hue="#f2b33d" onOpen={onOpen} />);
     const card = screen.getByLabelText('打开 知乎');
 
     fireEvent.click(card, { ctrlKey: false });
-    expect(onOpen).toHaveBeenLastCalledWith(bookmark, false);
+    expect(onOpen).toHaveBeenLastCalledWith(bookmark);
     fireEvent.click(card, { ctrlKey: true });
-    expect(onOpen).toHaveBeenLastCalledWith(bookmark, true);
+    expect(onOpen).toHaveBeenLastCalledWith(bookmark);
 
     // 新标签按钮不触发卡片自身的 onOpen
     fireEvent.click(screen.getByLabelText('在新标签页打开 知乎'));
-    expect(onOpen).toHaveBeenLastCalledWith(bookmark, true);
+    expect(onOpen).toHaveBeenLastCalledWith(bookmark);
     expect(onOpen).toHaveBeenCalledTimes(3);
   });
 
@@ -339,7 +339,7 @@ describe('BookmarkCard', () => {
     const onOpen = vi.fn();
     render(<BookmarkCard bookmark={bookmark} hue="#f2b33d" onOpen={onOpen} />);
     fireEvent.keyDown(screen.getByLabelText('打开 知乎'), { key: 'Enter' });
-    expect(onOpen).toHaveBeenCalledWith(bookmark, false);
+    expect(onOpen).toHaveBeenCalledWith(bookmark);
   });
 });
 
@@ -431,7 +431,7 @@ describe('SearchBox + useSearch', () => {
 
       fireEvent.keyDown(input, { key: 'Enter' });
       await act(async () => {});
-      expect(openUrl).toHaveBeenCalledWith(store.getState().results[1].url, 'current');
+      expect(openUrl).toHaveBeenCalledWith(store.getState().results[1].url, 'newTab');
 
       fireEvent.keyDown(input, { key: 'Escape' });
       expect(screen.getByTestId('open').textContent).toBe('false');

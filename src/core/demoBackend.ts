@@ -188,9 +188,9 @@ export function createDemoBackend(seed?: BookmarkNode[]): Backend {
       view?.open(url, '_blank', 'noopener,noreferrer');
     },
 
-    async webSearch(text: string, disposition: 'current' | 'newTab') {
+    async webSearch(text: string) {
       const url = `https://www.google.com/search?q=${encodeURIComponent(text)}`;
-      demoOpened.push({ url, disposition: `web:${disposition}` });
+      demoOpened.push({ url, disposition: 'web:newTab' });
       const view = (globalThis as { window?: Window }).window;
       view?.open(url, '_blank', 'noopener,noreferrer');
     },

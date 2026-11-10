@@ -43,7 +43,7 @@ export function ResultList({
   activeIndex: number;
   compact?: boolean;
   onHover(index: number): void;
-  onPick(result: SearchResult, newTab: boolean): void;
+  onPick(result: SearchResult): void;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -84,11 +84,11 @@ export function ResultList({
               data-active={active}
               className="result-row"
               onMouseEnter={() => onHover(index)}
-              onClick={(event) => onPick(result, event.ctrlKey || event.metaKey || event.button === 1)}
+              onClick={() => onPick(result)}
               onAuxClick={(event) => {
                 if (event.button === 1) {
                   event.preventDefault();
-                  onPick(result, true);
+                  onPick(result);
                 }
               }}
             >
