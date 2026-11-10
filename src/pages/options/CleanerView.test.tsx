@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { CACHE_PREFIX, cache } from '@/core/cache';
 import { store } from '@/core/store';
@@ -176,7 +176,9 @@ describe('报告即时修剪（v2 R6d）', () => {
     await waitFor(() => expect(screen.getByText(victim.title)).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: /清理全部 1 条/ }));
-    await requests[0].onConfirm();
+    await act(async () => {
+      await requests[0].onConfirm();
+    });
     await waitFor(() => expect(screen.queryByText(victim.title)).not.toBeInTheDocument());
   });
 });
