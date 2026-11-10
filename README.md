@@ -11,7 +11,7 @@
 [![CI](https://github.com/taoweidong/smartbookmark-hub/actions/workflows/ci.yml/badge.svg)](https://github.com/taoweidong/smartbookmark-hub/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Manifest V3](https://img.shields.io/badge/Manifest%20V3-Chrome%20%E2%89%A5%20116-4285F4?logo=googlechrome&logoColor=white)](docs/SmartBookmark-Hub-技术方案.md)
-[![Tests](https://img.shields.io/badge/tests-515%20passing-brightgreen)](src)
+[![Tests](https://img.shields.io/badge/tests-519%20passing-brightgreen)](src)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](package.json)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg)](https://github.com/taoweidong/smartbookmark-hub/pulls)
 
@@ -86,9 +86,9 @@ npm install            # Node 20+，无需额外全局依赖
 npm run dev            # 网页预览（Demo 数据）
 npm run build          # 构建扩展产物到 dist/
 npm run typecheck      # TypeScript 严格类型检查
-npm run test           # Vitest 单元 + 组件测试（515 例）
+npm run test           # Vitest 单元 + 组件测试（519 例）
 npm run test:coverage  # Vitest 覆盖率报告（v8，输出 coverage/）
-npm run e2e            # Playwright 驱动真实 Chromium 的端到端验证（38 项断言）
+npm run e2e            # Playwright 驱动真实 Chromium 的端到端验证（46 项断言）
 npm run package        # 打包 dist/ 为 zip
 npm run icons          # 重新生成品牌图标
 ```

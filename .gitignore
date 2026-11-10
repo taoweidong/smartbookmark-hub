@@ -3,6 +3,7 @@ dist/
 release/
 coverage/
 *.log
+*.zip
 .DS_Store
 .e2e-profile/
 test-results/

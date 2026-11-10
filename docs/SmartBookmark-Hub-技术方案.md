@@ -396,7 +396,7 @@ canonicalUrl(url, { ignoreWww }):
 - 状态：无选中文件夹 → 插画式引导 + 选择按钮；加载中 → 骨架 shimmer；API 不可用 → 明确横幅 + Demo 数据说明
 - 滚动条自绘（宽度、轨道、滑块、hover 全部取自调色板）
 
-**弹窗 `popup.html`**（360×560）：自动聚焦搜索、结果列表（书签优先分组标识）、最近搜索 chips、底部三入口（首页/管理台/健康扫描）、微型统计。
+**弹窗 `popup.html`**（双形态）：`chrome.tabs.getCurrent()` 判定——有值=以标签页打开（铺满窗口宽度，内容列上限 900px）；无值=扩展工具栏弹窗（宽 360px，高度随内容自适应、上限 600px，超出由中部区域滚动）。自动聚焦搜索、结果列表（书签优先分组标识）、最近搜索 chips、底部三入口（首页/管理台/健康扫描）、微型统计。
 
 **管理台 `options.html`**：左树（展开/折叠、过滤、拖拽移动、右键菜单、内联重命名）+ 右工作区四视图：
 1. 书签列表：虚拟滚动表格、批量选择、排序、过滤、详情抽屉（标题/URL/文件夹/标签）
@@ -535,3 +535,7 @@ Hello-Chrome-Extension/
   4. `Settings.dashboard.background` 新增可选 `revision`：换背景图即时生效（`3075030`，§4 已同步）；
   5. 首屏主题预设 `public/theme-boot.js`：三入口水合前同步应用主题（`332c48c`，§7.3/§8 已同步）；
   6. 目录结构补 `src/ui/openWithFeedback.ts`（`0e5e7e4`，§8 已同步）；Backend 接口新增 `openHub(focusSearch)`，UI 层 `chrome.*` 直调归零（同 commit）。
+- **v1.3（2026-11-10）**：同步界面自适应与打开行为变更——
+  1. `popup.html` 改双形态：有 `chrome.tabs.getCurrent()`（以标签页打开）→ 铺满窗口宽度、内容列上限 900px；无值（工具栏弹窗）→ 宽 360px、高度内容自适应上限 600px，中部滚动兜底（§7.3 已同步）；
+  2. 打开方式收敛为「只开新标签页」：`Disposition` 删除 `'current'`，书签/搜索结果/omnibox/管理台一律 `chrome.tabs.create`，不再原地覆盖当前页签（§3.2/§7.3 已同步）；
+  3. 管理台入口由 `chrome.runtime.openOptionsPage()` 改为 `chrome.tabs.create(options.html)`，避免复用旧标签页把用户的面板刷新掉（§3.2/§7.3 已同步）。
