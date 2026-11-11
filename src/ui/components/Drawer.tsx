@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { isTopLayer, popLayer, pushLayer } from '../popupStack';
@@ -18,24 +18,30 @@ export function Drawer({
   children: ReactNode;
   footer?: ReactNode;
 }) {
+  const panelRef = useRef<HTMLElement>(null);
+  // 与 Modal 一致：用 ref 持有 onClose，父组件的内联回调每次渲染都是新引用，
+  // 若进入 effect 依赖会导致弹层栈重排与焦点重抢（v2 R6 同类修复）
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
   useEffect(() => {
     if (!open) return;
     const layerId = pushLayer();
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && isTopLayer(layerId)) onClose();
+      if (event.key === 'Escape' && isTopLayer(layerId)) {
+        event.stopPropagation();
+        onCloseRef.current();
+      }
     };
     document.addEventListener('keydown', onKey);
+    // 打开时聚焦面板，键盘用户可直接 Tab 遍历抽屉内容；用 ref 避免全局选择器误选
+    panelRef.current?.focus();
     return () => {
       document.removeEventListener('keydown', onKey);
       popLayer(layerId);
     };
-  }, [open, onClose]);
-
-  useEffect(() => {
-    if (!open) return;
-    // 打开时聚焦面板，键盘用户可直接 Tab 遍历抽屉内容
-    const panel = document.querySelector<HTMLElement>('[role="dialog"][aria-modal="true"].drawer-in');
-    panel?.focus();
   }, [open]);
 
   if (!open) return null;
@@ -49,6 +55,7 @@ export function Drawer({
       }}
     >
       <aside
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}

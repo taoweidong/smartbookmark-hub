@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { setBackend } from '../backend';
+import { CACHE_PREFIX, cache } from '../cache';
 import { createDemoBackend } from '../demoBackend';
 import type { BookmarkNode } from '../types';
 import { listReports, loadReport, runScan, type ScanOptions } from './scan';
@@ -168,5 +169,31 @@ describe('续扫 checkedIds 持久化（v2 R4.4）', () => {
     expect(fetchCalls.mock.calls.length - callsBefore).toBe(report2.total - report1.checked);
     expect(report2.checked).toBe(report2.total);
     expect(report2.checkedIds).toHaveLength(report2.total);
+  });
+});
+
+describe('健康缓存键（2026-11-11 优化）', () => {
+  it('www 域名扫描结果按页面读取口径写入，不因 ignoreWww 失效', async () => {
+    const wwwTree: BookmarkNode[] = [
+      {
+        id: '0',
+        title: '',
+        children: [
+          {
+            id: '1',
+            title: '书签栏',
+            parentId: '0',
+            children: [
+              { id: '20', title: 'www 站点', url: 'https://www.example.com/a', parentId: '1', dateAdded: 1000 },
+            ],
+          },
+        ],
+      },
+    ];
+    setBackend(createDemoBackend(wwwTree));
+    await runScan(options(mockFetch(), { ignoreWww: true }));
+    // 页面统一用 canonicalUrl(item.url)（默认不剥 www）查询，键必须保持一致
+    expect(await cache.get(CACHE_PREFIX.health + 'https://www.example.com/a')).toBeDefined();
+    expect(await cache.get(CACHE_PREFIX.health + 'https://example.com/a')).toBeUndefined();
   });
 });

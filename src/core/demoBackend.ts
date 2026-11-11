@@ -199,6 +199,11 @@ export function createDemoBackend(seed?: BookmarkNode[]): Backend {
       return { title: '当前页面（演示模式）', url: 'https://developer.chrome.com/docs/extensions' };
     },
 
+    async isTabContext() {
+      // 网页预览没有扩展弹窗上下文，按窄弹窗形态渲染
+      return false;
+    },
+
     onChange(callback) {
       changeListeners.add(callback);
       return () => changeListeners.delete(callback);

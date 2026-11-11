@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getBackend } from '@/core/backend';
 import type { LinkHealth } from '@/core/types';
@@ -130,6 +131,14 @@ describe('BookmarksView', () => {
   it('勾选单个行进入选择集', () => {
     renderView();
     fireEvent.click(screen.getByLabelText('选择 项目看板'));
+    expect(store.getState().selectedIds).toEqual(['b1']);
+  });
+
+  it('键盘 Space 合成的选择事件同样进入选择集（受控 checkbox 无空 onChange）', async () => {
+    const user = userEvent.setup();
+    renderView();
+    (screen.getByLabelText('选择 项目看板') as HTMLInputElement).focus();
+    await user.keyboard(' ');
     expect(store.getState().selectedIds).toEqual(['b1']);
   });
 });

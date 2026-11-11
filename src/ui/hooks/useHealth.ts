@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { CACHE_PREFIX, cache } from '@/core/cache';
+import { CACHE_PREFIX, cache, healthUrlFromKey } from '@/core/cache';
 import type { LinkHealth } from '@/core/types';
 
 export function useHealth(): { health: Map<string, LinkHealth>; reload(): void } {
@@ -10,7 +10,8 @@ export function useHealth(): { health: Map<string, LinkHealth>; reload(): void }
     let alive = true;
     void cache.entries<LinkHealth>(CACHE_PREFIX.health).then((entries) => {
       if (!alive) return;
-      setHealth(new Map(entries.map(([key, value]) => [key.slice(CACHE_PREFIX.health.length), value])));
+      // 与 core/cache.ts 的 healthKey() 配套反解，避免前缀字符串散落两处
+      setHealth(new Map(entries.map(([key, value]) => [healthUrlFromKey(key), value])));
     });
     return () => {
       alive = false;

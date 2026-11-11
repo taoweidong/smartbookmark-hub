@@ -96,6 +96,7 @@ export function createChromeLikeBackend(seed: BookmarkNode[]): Backend {
     openUrl: async () => {},
     webSearch: async () => {},
     currentTab: async () => null,
+    isTabContext: async () => false,
     onChange: () => () => {},
     onSettingsChanged: () => () => {},
     hasHostPermission: async () => true,

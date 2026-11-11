@@ -1,9 +1,9 @@
 import { bookmarkService, flattenTree } from '../bookmarks';
-import { CACHE_PREFIX, cache } from '../cache';
+import { CACHE_PREFIX, cache, healthKey } from '../cache';
 import { PERSIST_EVERY } from '../constants';
 import { uid } from '../format';
 import type { DeadLinkItem, LinkHealth, ScanReport } from '../types';
-import { canonicalUrl, isHttpUrl } from '../url';
+import { isHttpUrl } from '../url';
 import { checkLink } from './deadLinks';
 import { findDuplicates } from './duplicates';
 import { findEmptyFolders } from './emptyFolders';
@@ -96,7 +96,7 @@ export async function runScan(opts: ScanOptions): Promise<ScanReport> {
     opts.concurrency,
     async (bookmark) => {
       if (opts.signal?.aborted) return;
-      const key = CACHE_PREFIX.health + canonicalUrl(bookmark.url, { ignoreWww: opts.ignoreWww });
+      const key = healthKey(bookmark.url);
 
       let health = opts.force ? undefined : await cache.get<LinkHealth>(key);
       if (health && Date.now() - health.checkedAt > cacheWindow) health = undefined;

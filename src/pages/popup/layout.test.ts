@@ -1,33 +1,50 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { setBackend } from '@/core/backend';
+import { createDemoBackend } from '@/core/demoBackend';
 import { detectPopupLayout } from './layout';
 
 const popupHtml = readFileSync(resolve(import.meta.dirname, '../../../popup.html'), 'utf8');
+const layoutSource = readFileSync(resolve(import.meta.dirname, './layout.ts'), 'utf8');
+
+function useBackend(isTabContext: () => Promise<boolean>): void {
+  setBackend({ ...createDemoBackend(), isTabContext });
+}
 
 describe('detectPopupLayout', () => {
   afterEach(() => {
+    setBackend(createDemoBackend());
     vi.unstubAllGlobals();
   });
 
   it('当前文档位于标签页时判为 tab', async () => {
-    vi.stubGlobal('chrome', { tabs: { getCurrent: vi.fn().mockResolvedValue({ id: 1 }) } });
+    useBackend(async () => true);
     await expect(detectPopupLayout()).resolves.toBe('tab');
   });
 
   it('取不到当前标签页（工具栏弹窗）时判为 popup', async () => {
-    vi.stubGlobal('chrome', { tabs: { getCurrent: vi.fn().mockResolvedValue(undefined) } });
+    useBackend(async () => false);
     await expect(detectPopupLayout()).resolves.toBe('popup');
   });
 
-  it('没有 chrome API 时降级为 popup', async () => {
-    vi.stubGlobal('chrome', undefined);
+  it('平台 API 不可用时降级为 popup', async () => {
+    setBackend(null);
     await expect(detectPopupLayout()).resolves.toBe('popup');
   });
 
-  it('getCurrent 抛错时降级为 popup', async () => {
-    vi.stubGlobal('chrome', { tabs: { getCurrent: vi.fn().mockRejectedValue(new Error('boom')) } });
+  it('形态探测抛错时降级为 popup', async () => {
+    useBackend(async () => {
+      throw new Error('boom');
+    });
     await expect(detectPopupLayout()).resolves.toBe('popup');
+  });
+});
+
+describe('popup 形态探测的平台边界', () => {
+  it('页面层不直接调用浏览器平台 API，统一走 Backend', () => {
+    expect(layoutSource).not.toMatch(/chrome\s*\./);
+    expect(layoutSource).toContain('getBackend()');
   });
 });
 

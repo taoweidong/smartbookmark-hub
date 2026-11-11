@@ -8,6 +8,10 @@ export default defineConfig({
     alias: { '@': resolve(import.meta.dirname, 'src') },
   },
   test: {
+    // Vitest 5.1 默认 forks 池在 Windows + Node 22 下会丢失 runner 上下文，
+    // setupFiles 的 beforeEach 抛 "Vitest failed to find the runner"（39/39 套件失败）。
+    // vmThreads 保持文件级隔离且更快，也是 Vitest 输出的性能建议。
+    pool: 'vmThreads',
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],

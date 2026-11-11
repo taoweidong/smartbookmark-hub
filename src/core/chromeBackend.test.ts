@@ -29,6 +29,12 @@ describe('chromeBackend 适配层', () => {
     setBackend(null);
   });
 
+  it('isTabContext 依据当前文档所在标签页判定', async () => {
+    await expect(backend.isTabContext()).resolves.toBe(false);
+    mock.tabs.getCurrent.mockImplementation((cb) => cb({ id: 7 }));
+    await expect(backend.isTabContext()).resolves.toBe(true);
+  });
+
   describe('回调错误语义（runtime.lastError）', () => {
     it('getTree 在 lastError 存在时 reject 并携带错误信息', async () => {
       mock.bookmarks.getTree.mockImplementation((cb) => {

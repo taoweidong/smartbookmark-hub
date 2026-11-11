@@ -1,5 +1,6 @@
 import { createStore, del, get, getMany, keys, set, type UseStore } from 'idb-keyval';
 import { DB_NAME } from './constants';
+import { canonicalUrl } from './url';
 
 let idb: UseStore | null = null;
 let memory: Map<string, unknown> | null = null;
@@ -91,6 +92,20 @@ export const CACHE_PREFIX = {
   asset: 'asset:',
   index: 'index:',
 } as const;
+
+/**
+ * 健康缓存 key 的唯一构造入口。
+ * 读取方（useHealth + 各页面）统一用 canonicalUrl(url)（默认不剥 www）查询，
+ * 因此键不能受扫描选项 ignoreWww 影响 —— 读取时无法还原写入时的选项。
+ */
+export function healthKey(url: string): string {
+  return CACHE_PREFIX.health + canonicalUrl(url);
+}
+
+/** 与 healthKey 配套的反解，把缓存 key 还原为页面查询用的 canonicalUrl */
+export function healthUrlFromKey(key: string): string {
+  return key.slice(CACHE_PREFIX.health.length);
+}
 
 export function resetCacheForTests(): void {
   idb = null;

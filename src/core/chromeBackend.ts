@@ -102,6 +102,13 @@ export function createChromeBackend(): Backend {
       return tab?.url ? { title: tab.title ?? tab.url, url: tab.url } : null;
     },
 
+    async isTabContext() {
+      const tab = await invoke<chrome.tabs.Tab | undefined>((cb) =>
+        chrome.tabs.getCurrent((found) => cb(found)),
+      );
+      return Boolean(tab);
+    },
+
     onChange(callback) {
       wire();
       changeListeners.add(callback);

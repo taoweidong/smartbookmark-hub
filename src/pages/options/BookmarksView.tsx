@@ -135,8 +135,9 @@ export function BookmarksView({
   const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
   const allSelected = rows.length > 0 && rows.every((row) => selected.has(row.id));
 
-  const clickRow = (bookmark: FlatBookmark, event: React.MouseEvent) => {
-    if (event.shiftKey && lastClicked.current) {
+  // 鼠标点击与键盘 Space 都会合成 change 事件，统一由此处理；shiftKey 用于范围选择
+  const clickRow = (bookmark: FlatBookmark, shiftKey = false) => {
+    if (shiftKey && lastClicked.current) {
       const from = rows.findIndex((row) => row.id === lastClicked.current);
       const to = rows.findIndex((row) => row.id === bookmark.id);
       if (from >= 0 && to >= 0) {
@@ -419,8 +420,10 @@ export function BookmarksView({
                       style={{ opacity: 1, accentColor: 'var(--accent)' }}
                       checked={isSelected}
                       aria-label={`选择 ${bookmark.title}`}
-                      onClick={(event) => clickRow(bookmark, event)}
-                      onChange={() => {}}
+                      onChange={(event) => {
+                        const native = event.nativeEvent as { shiftKey?: boolean };
+                        clickRow(bookmark, Boolean(native.shiftKey));
+                      }}
                     />
                     <Favicon url={bookmark.url} title={bookmark.title} size={18} />
                     <button

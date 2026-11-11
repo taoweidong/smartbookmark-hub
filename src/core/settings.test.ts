@@ -19,6 +19,7 @@ describe('defaultSettings', () => {
     expect(settings.dashboard.background.type).toBe('aurora');
     expect(settings.scan.concurrency).toBe(5);
     expect(settings.search.includeHistory).toBe(true);
+    expect(settings.dashboard.viewBarOpen).toBe(false);
   });
 });
 
@@ -144,5 +145,45 @@ describe('settings 形状防御（v2 R4.7）', () => {
     const settings = await loadSettings();
     expect(settings.dashboard.tabs.map((tab) => tab.id)).toEqual(['t1']);
     expect(settings.dashboard.activeTabId).toBe('t1');
+  });
+
+  it('viewBarOpen 非布尔值回退 false，真值保留', async () => {
+    await getBackend().storageSet(SETTINGS_KEY, {
+      dashboard: { ...defaultSettings().dashboard, viewBarOpen: 'yes' },
+    });
+    expect((await loadSettings()).dashboard.viewBarOpen).toBe(false);
+
+    await getBackend().storageSet(SETTINGS_KEY, {
+      dashboard: { ...defaultSettings().dashboard, viewBarOpen: true },
+    });
+    expect((await loadSettings()).dashboard.viewBarOpen).toBe(true);
+  });
+});
+
+describe('设置版本与并发写（2026-11-11 优化）', () => {
+  it('无 version 的旧存储补齐版本并保留用户设置', async () => {
+    await getBackend().storageSet(SETTINGS_KEY, { theme: 'light', search: { maxResults: 7 } });
+    const settings = await loadSettings();
+    expect(settings.version).toBe(1);
+    expect(settings.theme).toBe('light');
+    expect(settings.search.maxResults).toBe(7);
+  });
+
+  it('高于当前版本的存储回退默认，避免旧代码误写破坏新结构', async () => {
+    await getBackend().storageSet(SETTINGS_KEY, { version: 99, theme: 'light' });
+    expect(await loadSettings()).toEqual(defaultSettings());
+  });
+
+  it('并发写入不互相覆盖：标签、查询与主题全部保留', async () => {
+    await Promise.all([
+      setTags('b1', ['x']),
+      setTags('b2', ['y']),
+      rememberQuery('hello'),
+      saveSettings({ theme: 'light' }),
+    ]);
+    const settings = await loadSettings();
+    expect(settings.tags).toEqual({ b1: ['x'], b2: ['y'] });
+    expect(settings.recentQueries).toEqual(['hello']);
+    expect(settings.theme).toBe('light');
   });
 });

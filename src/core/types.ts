@@ -55,6 +55,8 @@ export interface DashboardTab {
 }
 
 export interface Settings {
+  /** 结构版本：设置迁移与兼容性判断依据 */
+  version: number;
   theme: ThemeMode;
   accent: AccentName;
   dashboard: {
@@ -65,6 +67,7 @@ export interface Settings {
     sort: 'default' | 'recent' | 'title' | 'host';
     perFolder: number;
     showStats: boolean;
+    viewBarOpen: boolean;
     seeded: boolean;
     background: { type: 'aurora' | 'solid' | 'image'; value: string; revision?: number };
   };

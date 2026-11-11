@@ -22,6 +22,8 @@ export interface Backend {
   openUrl(url: string, disposition: Disposition): Promise<void>;
   webSearch(text: string): Promise<void>;
   currentTab(): Promise<{ title: string; url: string } | null>;
+  /** 当前文档是否位于标签页（而非工具栏弹窗）：popup 双形态判定用 */
+  isTabContext(): Promise<boolean>;
   onChange(callback: () => void): () => void;
   onSettingsChanged(callback: () => void): () => void;
   hasHostPermission(): Promise<boolean>;

@@ -121,6 +121,7 @@ export function createChromeApiMock() {
       >(() => []),
     },
     tabs: {
+      getCurrent: callbackApi<[], MockTab | undefined>(() => undefined),
       query: dualApi<[queryInfo: Record<string, unknown>], MockTab[]>(() => []),
       create: dualApi<[props: { url?: string; active?: boolean }], MockTab>(() => ({})),
       update: dualApi<[tabId: number, props: { url?: string; active?: boolean }], MockTab>(

@@ -621,6 +621,26 @@ describe('弹层栈稳定性（v2 R6）', () => {
     expect(layerCount()).toBe(1);
     expect(document.activeElement).not.toBe(screen.getByLabelText('弹层输入框'));
   });
+
+  it('Drawer 父组件重渲染不重复压栈，也不重抢焦点', () => {
+    function FlakyDrawer({ tick }: { tick: number }) {
+      return (
+        <Drawer open title={`抽屉${tick}`} onClose={() => {}}>
+          <input aria-label="抽屉输入框" defaultValue={`v${tick}`} />
+        </Drawer>
+      );
+    }
+    const { rerender } = render(<FlakyDrawer tick={0} />);
+    const panel = screen.getByRole('dialog');
+    expect(layerCount()).toBe(1);
+    expect(document.activeElement).toBe(panel);
+
+    (panel as HTMLElement).blur();
+    rerender(<FlakyDrawer tick={1} />);
+    rerender(<FlakyDrawer tick={2} />);
+    expect(layerCount()).toBe(1);
+    expect(document.activeElement).not.toBe(panel);
+  });
 });
 
 describe('弹层栈：Escape 只关最顶层', () => {
