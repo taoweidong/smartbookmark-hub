@@ -155,6 +155,7 @@ export interface Settings {
     layout: 'grid' | 'list';
     cardSize: 'sm' | 'md' | 'lg';
     showStats: boolean;
+    viewBarOpen: boolean;                   // M2：视图栏展开态，默认 false，持久化
     background: { type: 'aurora' | 'solid' | 'image'; value: string; revision?: number };  // revision 随换图递增，触发首屏/运行时重载
   };
   search: { includeHistory: boolean; historyDays: number; maxResults: number; debounceMs: number };
@@ -387,8 +388,9 @@ canonicalUrl(url, { ignoreWww }):
 
 **首页 `newtab.html`**
 - 首屏主题预设：三入口 HTML 在水合前经 `public/theme-boot.js` 同步应用主题（镜像 localStorage → chrome.storage 兜底），浅色用户不闪深色
-- 顶部固定命令栏：品牌手绘 SVG + 名称｜居中搜索胶囊（焦点鎏金环、`Ctrl K` 提示、书签/历史/网页范围 chips）｜右侧主题切换、文件夹选择、管理台入口
-- 问候条：时段问候 + 日期 + 四项真实统计（书签总数 / 文件夹数 / 近 7 天新增 / 链接健康度），数字用等宽字体
+- 顶部两层命令栏：品牌单行字标 + 居中搜索胶囊（焦点鎏金环、`Ctrl K` 提示、书签/历史/网页范围 chips）+ 主题切换/管理台；第二层页签条 + 视图齿轮 + 「选择文件夹」（恒可见）
+- 可折叠视图栏：布局/卡片尺寸/排序/每组数量/背景/主色/统计/重置视图，默认收起，展开态写入 `dashboard.viewBarOpen` 持久化（M2）
+- 单行概览条：时段问候 + 日期（唯一 h1）｜页签摘要（N 文件夹 · N 书签）｜「其余 N 条 ⌘K」聚焦搜索 chip｜四项行内迷你统计（书签总数 / 文件夹数 / 近 7 天新增 / 链接健康度，等宽数字）｜「仅存本机」chip；窄屏 flex-wrap 换行（M2）
 - 页签条：用户自定义分组（工作/学习/娱乐…），可增删改名，每组独立选择文件夹
 - 左侧 sticky 文件夹导航（选中文件夹 + 计数 + 「选择文件夹」）
 - 主区：按文件夹分区的卡片网格（尺寸 sm/md/lg 可调，grid/list 可切）
@@ -406,7 +408,7 @@ canonicalUrl(url, { ignoreWww }):
 
 ### 7.4 动效与反馈
 
-- 入场：命令栏 → 问候条 → 页签 → 分区卡片，阶梯 60ms 位移淡入
+- 入场：命令栏 → 概览条 → 分区卡片，阶梯 60ms 位移淡入；视图栏展开 180ms 位移淡入（`.view-bar-in`）
 - 交互：卡片 hover 浮起 2px + 边框借色；按钮按压回弹；所有异步操作有 loading/成功/失败三态
 - 破坏性操作：确认对话框 + 删除后 Toast 撤销（8s 进度条）
 - 扫描：实时进度条 + 计数 + 分类色点，可取消
@@ -539,3 +541,7 @@ Hello-Chrome-Extension/
   1. `popup.html` 改双形态：有 `chrome.tabs.getCurrent()`（以标签页打开）→ 铺满窗口宽度、内容列上限 900px；无值（工具栏弹窗）→ 宽 360px、高度内容自适应上限 600px，中部滚动兜底（§7.3 已同步）；
   2. 打开方式收敛为「只开新标签页」：`Disposition` 删除 `'current'`，书签/搜索结果/omnibox/管理台一律 `chrome.tabs.create`，不再原地覆盖当前页签（§3.2/§7.3 已同步）；
   3. 管理台入口由 `chrome.runtime.openOptionsPage()` 改为 `chrome.tabs.create(options.html)`，避免复用旧标签页把用户的面板刷新掉（§3.2/§7.3 已同步）。
+- **v1.4（2026-11-11）**：同步首屏空间收敛（M2）——
+  1. 首页顶部收敛为两层命令栏，视图设置移入可折叠视图栏，`Settings.dashboard` 新增 `viewBarOpen`（默认 `false`，形状防御回退），展开态持久化（§4/§7.3 已同步）；
+  2. 问候/日期/页签摘要/「其余 N 条」搜索 chip/四项统计/「仅存本机」合并为单行概览条（`role="group" aria-label="首页概览"`），统计四卡在首页下线为行内迷你统计，`showStats` 语义不变（§7.3/§7.4 已同步）；
+  3. 实测首卡 Y 由 389（1280×900）降至 175，顶部高度 153→95px，窄屏 225→95px；详见 [界面交互与首页展示优化-实施计划.md](./界面交互与首页展示优化-实施计划.md) M2。

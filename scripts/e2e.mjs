@@ -240,6 +240,34 @@ try {
   await noOverflow(page, '首页 1280');
   await shot(page, 'newtab-1280');
 
+  // 首屏空间：顶部只留命令栏 + 页签栏，问候/摘要/统计收敛为单行概览
+  const firstScreen = await page.evaluate(() => {
+    const header = document.querySelector('header');
+    const card = document.querySelector('.bookmark-card');
+    const overview = document.querySelector('[data-sbh-context]');
+    return {
+      headerHeight: header ? Math.round(header.getBoundingClientRect().height) : 0,
+      overviewHeight: overview ? Math.round(overview.getBoundingClientRect().height) : 0,
+      firstCardY: card ? Math.round(card.getBoundingClientRect().top) : -1,
+      viewBar: Boolean(document.getElementById('sbh-view-bar')),
+    };
+  });
+  check(
+    '视图栏默认收起，顶部高度收敛',
+    !firstScreen.viewBar && firstScreen.headerHeight <= 100,
+    JSON.stringify(firstScreen),
+  );
+  check(
+    '问候与页签摘要收敛为单行概览',
+    firstScreen.overviewHeight > 0 && firstScreen.overviewHeight <= 40,
+    JSON.stringify(firstScreen),
+  );
+  check(
+    '1280×800 首张卡片落在首屏上半部',
+    firstScreen.firstCardY >= 0 && firstScreen.firstCardY <= 200,
+    JSON.stringify(firstScreen),
+  );
+
   await page.getByRole('button', { name: '新建页签' }).click();
   await page.getByRole('dialog', { name: '新建页签' }).getByLabel('页签名称').fill('娱乐');
   await page.getByRole('button', { name: '创建并选择文件夹' }).click();
@@ -249,9 +277,18 @@ try {
   await page.getByRole('tab', { name: /常用/ }).click();
   await page.getByRole('heading', { name: '工作', exact: true }).waitFor();
 
+  await page.getByRole('button', { name: '视图设置' }).click();
+  await page.getByLabel('背景样式').waitFor();
+  check('齿轮展开视图栏，控件全部可达', await page.getByRole('button', { name: '重置视图' }).isVisible());
   await page.getByRole('button', { name: '列表', exact: true }).click();
   check('列表布局生效', await page.locator('.bookmark-card').first().evaluate((node) => getComputedStyle(node).flexDirection) === 'row');
   await page.getByRole('button', { name: '网格', exact: true }).click();
+  const viewBarPersisted = await page.evaluate(
+    async () => (await chrome.storage.local.get('sbh:settings'))['sbh:settings']?.dashboard?.viewBarOpen,
+  );
+  check('视图栏展开状态写盘', viewBarPersisted === true, `viewBarOpen=${viewBarPersisted}`);
+  await page.getByRole('button', { name: '视图设置' }).click();
+  check('视图栏可再次收起', (await page.locator('#sbh-view-bar').count()) === 0);
   await page.getByRole('button', { name: /当前主题/ }).click();
   check('浅色主题生效', await page.evaluate(() => document.documentElement.classList.contains('light')));
   await shot(page, 'newtab-light');

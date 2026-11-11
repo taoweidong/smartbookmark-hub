@@ -30,9 +30,7 @@ async function seed(over: Partial<Settings['dashboard']> = {}) {
 }
 
 function renderControls() {
-  const onPickFolders = vi.fn();
-  render(<DisplayControls onPickFolders={onPickFolders} />);
-  return { onPickFolders };
+  render(<DisplayControls />);
 }
 
 async function click(node: Element) {
@@ -194,12 +192,6 @@ describe('DisplayControls', () => {
     await waitFor(() => expect(dashboard().background).toEqual({ type: 'aurora', value: '' }));
     expect(dashboard()).toMatchObject({ layout: 'grid', cardSize: 'md', sort: 'default', perFolder: 8, showStats: true });
     expect(screen.getByLabelText('每个文件夹显示的书签数')).toHaveValue('8');
-  });
-
-  it('点击选择文件夹触发外部回调', async () => {
-    const { onPickFolders } = renderControls();
-    await click(screen.getByRole('button', { name: '选择文件夹' }));
-    expect(onPickFolders).toHaveBeenCalledTimes(1);
   });
 
   it('更换背景图片按钮打开文件选择框', async () => {

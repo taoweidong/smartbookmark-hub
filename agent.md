@@ -28,7 +28,7 @@ npm run test        # 前端 + 后端全部单元/组件测试，必须 100% 通
 
 - 提交信息使用中文前缀：`feat: ` / `fix: ` / `test: ` / `chore: ` / `docs: ` / `perf: ` / `refactor: `。
 - 一个逻辑变更一个提交；行为修复与大规模重构不混在同一提交，保证可单独回滚。
-- 涉及页面主流程（首页/搜索/管理台/清理/备份）的改动，需在本地额外运行 `npm run build` 与 `npm run e2e`（真实 Chromium，46 项断言）确认后再提交。
+- 涉及页面主流程（首页/搜索/管理台/清理/备份）的改动，需在本地额外运行 `npm run build` 与 `npm run e2e`（真实 Chromium，52 项断言）确认后再提交。
 - 提交前检查 `git status`，不提交无关文件；`dist/`、`test-results/`、`node_modules/` 永不入库。
 
 ## 3. 测试质量要求

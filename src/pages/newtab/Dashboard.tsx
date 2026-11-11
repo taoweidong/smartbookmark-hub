@@ -79,7 +79,7 @@ export function Dashboard({
 
   if (loading) {
     return (
-      <div className="px-4 py-6 lg:px-7">
+      <div className="px-4 py-6 lg:px-6">
         <SkeletonCards count={10} />
       </div>
     );
@@ -104,7 +104,7 @@ export function Dashboard({
   const total = sections.reduce((sum, section) => sum + section.items.length, 0);
 
   return (
-    <div className="flex gap-6 px-4 py-5 lg:px-7">
+    <div className="flex gap-6 px-4 pb-5 pt-3 lg:px-6">
       <FolderRail folders={sections.map((section) => section.folder)} activeId={activeId} total={total} onJump={jump} />
 
       <div className="min-w-0 flex-1 space-y-7">
@@ -121,7 +121,7 @@ export function Dashboard({
               style={{ scrollMarginTop: 12 }}
               aria-label={folder.title}
             >
-              <header className="mb-2.5 flex items-center gap-2.5">
+              <header className="mb-2 flex items-center gap-2.5">
                 <span className="h-[9px] w-[9px] shrink-0 rounded-[2px]" style={{ background: hue }} aria-hidden="true" />
                 <h2 className="display text-[15px] text-text">{folder.title}</h2>
                 <span className="mono text-[11px] text-text-faint">{items.length}</span>

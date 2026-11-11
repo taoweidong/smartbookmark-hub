@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getBackend, setBackend } from '@/core/backend';
 import { createDemoBackend } from '@/core/demoBackend';
@@ -78,25 +78,29 @@ afterEach(() => {
 });
 
 describe('newtab App 渲染', () => {
-  it('渲染搜索框、页签、显示控制与已选文件夹的书签卡片', async () => {
+  it('渲染搜索框、页签、常驻动作与已选文件夹的书签卡片', async () => {
     await renderApp();
 
     expect(screen.getByRole('combobox', { name: '全局搜索' })).toBeInTheDocument();
     expect(screen.getByRole('tablist', { name: '首页页签' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /工作/ })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByLabelText('背景样式')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '视图设置' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: '选择文件夹' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('背景样式')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '工作' })).toBeInTheDocument();
     expect(screen.getByLabelText('打开 项目看板')).toBeInTheDocument();
     expect(screen.getByText(/Ctrl\/⌘ \+ K 聚焦搜索/)).toBeInTheDocument();
   });
 
-  it('默认展示统计卡片、页签摘要与演示模式提示', async () => {
+  it('默认展示行内统计、单行页签摘要与演示模式提示', async () => {
     await renderApp();
 
-    expect(screen.getByText('书签总数')).toBeInTheDocument();
-    expect(screen.getByText('链接健康度')).toBeInTheDocument();
-    expect(screen.getByText(/展示 1 个文件夹、2 条书签/)).toBeInTheDocument();
+    const overview = screen.getByRole('group', { name: '首页概览' });
+    expect(within(overview).getByText('书签总数')).toBeInTheDocument();
+    expect(within(overview).getByText('链接健康度')).toBeInTheDocument();
+    expect(overview.textContent).toMatch(/1 文件夹/);
+    expect(overview.textContent).toMatch(/2 书签/);
     expect(screen.getByText(/当前是网页预览模式/)).toBeInTheDocument();
   });
 
@@ -108,8 +112,9 @@ describe('newtab App 渲染', () => {
     expect(screen.getByText('读取书签失败')).toBeInTheDocument();
   });
 
-  it('关闭统计开关后隐藏统计卡片', async () => {
+  it('关闭统计开关后隐藏行内统计', async () => {
     await renderApp();
+    await click(screen.getByRole('button', { name: '视图设置' }));
     await click(screen.getByRole('button', { name: '统计' }));
 
     await waitFor(() => expect(screen.queryByText('书签总数')).not.toBeInTheDocument());
@@ -120,6 +125,70 @@ describe('newtab App 渲染', () => {
     await renderApp();
     await click(screen.getByRole('button', { name: /管理台/ }));
     expect(window.open).toHaveBeenCalledWith('options.html', '_blank', 'noopener,noreferrer');
+  });
+});
+
+describe('newtab App 首屏空间与视图栏', () => {
+  it('视图栏默认收起，展开后控件可见且状态写盘，再次点击收起', async () => {
+    await renderApp();
+    const gear = screen.getByRole('button', { name: '视图设置' });
+    expect(gear).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByLabelText('背景样式')).not.toBeInTheDocument();
+
+    await click(gear);
+    expect(gear).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByLabelText('背景样式')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '重置视图' })).toBeInTheDocument();
+    await waitFor(() => expect(dashboard().viewBarOpen).toBe(true));
+    expect((await getBackend().storageGet<Settings>(SETTINGS_KEY))?.dashboard.viewBarOpen).toBe(true);
+
+    await click(gear);
+    expect(gear).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByLabelText('背景样式')).not.toBeInTheDocument();
+    await waitFor(() => expect(dashboard().viewBarOpen).toBe(false));
+  });
+
+  it('设置里 viewBarOpen 为 true 时首屏直接展开视图栏', async () => {
+    await seedSettings({ viewBarOpen: true });
+    await renderApp();
+
+    expect(screen.getByRole('button', { name: '视图设置' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByLabelText('背景样式')).toBeInTheDocument();
+  });
+
+  it('视图栏收起时选择文件夹仍常驻可用', async () => {
+    await renderApp();
+    expect(screen.queryByLabelText('背景样式')).not.toBeInTheDocument();
+
+    await click(screen.getByRole('button', { name: '选择文件夹' }));
+    expect(screen.getByRole('dialog', { name: '为「工作」选择文件夹' })).toBeInTheDocument();
+  });
+
+  it('问候与日期收敛在概览条的同一个标题里', async () => {
+    await renderApp();
+
+    const overview = screen.getByRole('group', { name: '首页概览' });
+    const heading = within(overview).getByRole('heading', { level: 1 });
+    expect(heading.textContent).toMatch(/夜深了|早上好|上午好|中午好|下午好|晚上好/);
+    expect(heading.textContent).toMatch(/\d+ 月 \d+ 日 · 周[日一二三四五六]/);
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+  });
+
+  it('其余书签提示点击后聚焦搜索框', async () => {
+    await renderApp();
+    const input = screen.getByRole('combobox', { name: '全局搜索' });
+    expect(input).not.toHaveFocus();
+
+    await click(screen.getByRole('button', { name: /其余 1 条书签/ }));
+    expect(input).toHaveFocus();
+  });
+
+  it('本页已展示全部书签时不显示其余提示', async () => {
+    await seedSettings({ tabs: [{ id: 'tab-1', name: '工作', folderIds: ['f1', 'f2'] }] });
+    await renderApp();
+
+    expect(screen.queryByRole('button', { name: /其余/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('group', { name: '首页概览' }).textContent).toMatch(/3 书签/);
   });
 });
 

@@ -32,7 +32,7 @@ export function TabStrip({
   };
 
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto pb-0.5" role="tablist" aria-label="首页页签">
+    <div className="sbh-scroll-x flex min-w-0 flex-1 items-center gap-1 overflow-x-auto pb-1" role="tablist" aria-label="首页页签">
       {dashboard.tabs.map((tab) => {
         const active = tab.id === dashboard.activeTabId;
         const count = tab.folderIds.filter((id) => folders.some((folder) => folder.id === id)).length;
@@ -54,7 +54,7 @@ export function TabStrip({
                 activate(tab.id);
               }
             }}
-            className="group flex shrink-0 cursor-pointer items-center gap-1.5 rounded-[7px] border px-2.5 py-[5px] text-[12.5px] font-semibold transition-colors duration-150"
+            className="group flex shrink-0 cursor-pointer items-center gap-1.5 rounded-[6px] border px-2 py-[3px] text-[12px] font-semibold transition-colors duration-150"
             style={{
               borderColor: active ? 'var(--accent)' : 'var(--line)',
               background: active ? 'color-mix(in srgb, var(--accent) 15%, transparent)' : 'transparent',
@@ -63,33 +63,33 @@ export function TabStrip({
             }}
             title={`${tab.name} · ${count} 个文件夹（双击重命名，可拖拽排序）`}
           >
-            <LayoutGrid size={11} aria-hidden="true" style={{ color: active ? 'var(--accent)' : undefined }} />
+            <LayoutGrid size={10} aria-hidden="true" style={{ color: active ? 'var(--accent)' : undefined }} />
             {tab.name}
             <span className="mono text-[10px] opacity-70">{count}</span>
             {active && (
               <span className="ml-0.5 flex items-center gap-0.5">
                 <button
                   type="button"
-                  className="icon-btn h-5 w-5"
+                  className="icon-btn h-[18px] w-[18px]"
                   aria-label={`重命名页签 ${tab.name}`}
                   onClick={(event) => {
                     event.stopPropagation();
                     onRename(tab);
                   }}
                 >
-                  <Pencil size={10} aria-hidden="true" />
+                  <Pencil size={9} aria-hidden="true" />
                 </button>
                 {dashboard.tabs.length > 1 && (
                   <button
                     type="button"
-                    className="icon-btn h-5 w-5 hover:!text-danger"
+                    className="icon-btn h-[18px] w-[18px] hover:!text-danger"
                     aria-label={`删除页签 ${tab.name}`}
                     onClick={(event) => {
                       event.stopPropagation();
                       onDelete(tab);
                     }}
                   >
-                    <Trash2 size={10} aria-hidden="true" />
+                    <Trash2 size={9} aria-hidden="true" />
                   </button>
                 )}
               </span>
@@ -99,13 +99,13 @@ export function TabStrip({
       })}
       <button
         type="button"
-        className="icon-btn h-[27px] w-[27px] shrink-0"
+        className="icon-btn h-[24px] w-[24px] shrink-0"
         aria-label="新建页签"
         title="新建页签"
         disabled={dashboard.tabs.length >= 8}
         onClick={onAdd}
       >
-        <Plus size={14} aria-hidden="true" />
+        <Plus size={13} aria-hidden="true" />
       </button>
     </div>
   );

@@ -1,7 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Settings2, Bookmark, FolderTree, Sparkles, HeartPulse, Plus, ShieldCheck } from 'lucide-react';
+import {
+  Settings2,
+  Bookmark,
+  FolderTree,
+  Sparkles,
+  HeartPulse,
+  Plus,
+  ShieldCheck,
+  SlidersHorizontal,
+  ChevronDown,
+  FolderCog,
+} from 'lucide-react';
 import { getBackend } from '@/core/backend';
-import { greeting, weekdayLabel } from '@/core/format';
+import { formatCount, greeting, weekdayLabel } from '@/core/format';
 import { activeTab, store, useApp } from '@/core/store';
 import { canonicalUrl } from '@/core/url';
 import type { DashboardTab, FlatBookmark } from '@/core/types';
@@ -11,7 +22,6 @@ import { ThemeToggle } from '@/ui/components/ThemeToggle';
 import { Toasts } from '@/ui/components/Toasts';
 import { Modal, ConfirmDialog, type ConfirmRequest } from '@/ui/components/Modal';
 import { FolderPicker } from '@/ui/components/FolderPicker';
-import { StatTile } from '@/ui/components/Feedback';
 import { BookmarkEditor, type EditorTarget } from '@/ui/components/BookmarkEditor';
 import { useBootstrap } from '@/ui/hooks/useBootstrap';
 import { useSearch } from '@/ui/hooks/useSearch';
@@ -28,6 +38,32 @@ function readHash(): { query: string; focus: boolean } {
   return { query: '', focus: hash === 'search' };
 }
 
+function InlineStat({
+  icon,
+  label,
+  value,
+  color,
+  hint,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  color: string;
+  hint: string;
+}) {
+  return (
+    <span className="flex items-center gap-1" title={hint}>
+      <span style={{ color }} aria-hidden="true">
+        {icon}
+      </span>
+      <span className="text-[10.5px] text-text-faint">{label}</span>
+      <span className="mono text-[13px] font-bold leading-none" style={{ color }}>
+        {value}
+      </span>
+    </span>
+  );
+}
+
 export default function App() {
   useBootstrap();
   const [intent] = useState(readHash);
@@ -42,6 +78,7 @@ export default function App() {
   const demo = useApp((state) => state.demo);
   const error = useApp((state) => state.error);
   const tab = useApp(activeTab);
+  const viewBarOpen = useApp((state) => state.settings.dashboard.viewBarOpen);
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerIds, setPickerIds] = useState<string[]>([]);
@@ -86,6 +123,8 @@ export default function App() {
     const shown = folderIds.reduce((sum, id) => sum + (folders.find((folder) => folder.id === id)?.totalCount ?? 0), 0);
     return { recent, known, ok, shown, rate: known ? Math.round((ok / known) * 100) : null };
   }, [flat, health, folderIds, folders]);
+
+  const toggleViewBar = () => void store.getState().updateSettings({ dashboard: { viewBarOpen: !viewBarOpen } });
 
   const openPicker = () => {
     setPickerIds(tab?.folderIds ?? []);
@@ -140,15 +179,16 @@ export default function App() {
   const editBookmark = (bookmark: FlatBookmark) => setEditor({ mode: 'edit', bookmark });
 
   const now = new Date();
+  const remaining = Math.max(0, totalCount - stats.shown);
 
   return (
     <div className="relative flex h-full flex-col">
       <BackgroundLayer />
 
       <header className="relative z-30 flex-none border-b border-line bg-bg/80 backdrop-blur-md">
-        <div className="flex items-center gap-3 px-4 py-2.5 lg:gap-5 lg:px-7">
-          <Brand className="hidden shrink-0 sm:flex" />
-          <div className="mx-auto w-full max-w-[640px]">
+        <div className="flex items-center gap-3 px-4 py-1.5 lg:gap-4 lg:px-6">
+          <Brand size={26} compact className="hidden shrink-0 sm:flex" />
+          <div className="mx-auto w-full max-w-[620px]">
             <SearchBox controller={search} autoFocus={intent.focus} />
           </div>
           <div className="flex shrink-0 items-center gap-1">
@@ -160,51 +200,113 @@ export default function App() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 px-4 pt-1 lg:px-7">
+        <div className="flex items-center gap-2 px-4 pb-1 lg:px-6">
           <TabStrip
             onAdd={() => setTabDialog({ mode: 'add', name: '' })}
             onRename={(target) => setTabDialog({ mode: 'rename', id: target.id, name: target.name })}
             onDelete={deleteTab}
           />
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              className="btn btn-sm"
+              aria-label="视图设置"
+              aria-expanded={viewBarOpen}
+              aria-controls="sbh-view-bar"
+              title="布局、卡片、排序、每组数量、背景与主色"
+              onClick={toggleViewBar}
+              style={viewBarOpen ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : undefined}
+            >
+              <SlidersHorizontal size={13} aria-hidden="true" />
+              <span className="hidden lg:inline">视图</span>
+              <ChevronDown
+                size={11}
+                aria-hidden="true"
+                className={`transition-transform duration-200 ${viewBarOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+            <button type="button" className="btn btn-sm btn-primary" onClick={openPicker}>
+              <FolderCog size={12} aria-hidden="true" />
+              选择文件夹
+            </button>
+          </div>
         </div>
-        <DisplayControls onPickFolders={openPicker} />
+
+        {viewBarOpen && <DisplayControls />}
       </header>
 
       <main id="sbh-scroll" className="relative z-10 min-h-0 flex-1 overflow-y-auto">
-        <div className="rise-in px-4 pt-5 lg:px-7">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h1 className="display text-[24px] leading-tight text-text">
-                {greeting(now)}
-                <span className="ml-2.5 text-[13px] font-normal text-text-faint">
-                  {now.getMonth() + 1} 月 {now.getDate()} 日 · {weekdayLabel(now)}
-                </span>
-              </h1>
-              <p className="mt-1 text-[12.5px] text-text-faint">
-                「{tab?.name ?? '常用'}」展示 {folderIds.length} 个文件夹、{stats.shown} 条书签。其余 {Math.max(0, totalCount - stats.shown)} 条随时用搜索找回。
-              </p>
-            </div>
-            <span className="chip" title="所有数据只保存在本机">
-              <ShieldCheck size={11} className="text-ok" aria-hidden="true" />
-              数据仅存本机
+        <div className="rise-in px-4 pt-2.5 lg:px-6">
+          <div
+            data-sbh-context
+            role="group"
+            aria-label="首页概览"
+            className="flex flex-wrap items-center gap-x-3 gap-y-1.5"
+          >
+            <h1 className="display flex items-baseline gap-2 text-[16px] leading-none text-text">
+              {greeting(now)}
+              <span className="mono text-[11px] font-normal text-text-faint">
+                {now.getMonth() + 1} 月 {now.getDate()} 日 · {weekdayLabel(now)}
+              </span>
+            </h1>
+            <span className="hidden h-3.5 w-px bg-line-strong sm:block" aria-hidden="true" />
+            <span className="flex items-center gap-1.5 text-[12px] text-text-faint">
+              <span className="font-semibold text-text-dim">{tab?.name ?? '常用'}</span>
+              <span className="mono text-text">{folderIds.length}</span> 文件夹
+              <span className="text-line-strong" aria-hidden="true">·</span>
+              <span className="mono text-text">{stats.shown}</span> 书签
             </span>
-          </div>
-
-          {settings.dashboard.showStats && (
-            <div className="mt-3.5 grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(148px,1fr))]">
-              <StatTile label="书签总数" value={totalCount} icon={<Bookmark size={11} aria-hidden="true" />} hint="浏览器原生收藏夹" />
-              <StatTile label="文件夹" value={folders.length} color="var(--info)" icon={<FolderTree size={11} aria-hidden="true" />} hint={`本页已选 ${folderIds.length} 个`} />
-              <StatTile label="近 7 天新增" value={stats.recent} color="#a8e05f" icon={<Sparkles size={11} aria-hidden="true" />} hint="最近收藏的链接" />
-              <StatTile
-                label="链接健康度"
-                value={stats.rate === null ? '—' : `${stats.rate}%`}
-                raw
-                color={stats.rate === null ? 'var(--text-faint)' : stats.rate >= 90 ? 'var(--ok)' : 'var(--warn)'}
-                icon={<HeartPulse size={11} aria-hidden="true" />}
-                hint={stats.known ? `已检测 ${stats.known} 条` : '在管理台运行智能清理'}
-              />
+            {remaining > 0 && (
+              <button
+                type="button"
+                className="chip transition-colors duration-150 hover:border-accent hover:text-accent"
+                aria-label={`其余 ${remaining} 条书签，点击聚焦搜索`}
+                title="这些书签不在本页展示，用搜索随时找回"
+                onClick={focus}
+              >
+                其余 <span className="mono text-text-dim">{remaining}</span> 条
+                <span className="mono rounded-[3px] border border-line px-1 text-[10px]">⌘K</span>
+              </button>
+            )}
+            <div className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1">
+              {settings.dashboard.showStats && (
+                <>
+                  <InlineStat
+                    icon={<Bookmark size={11} />}
+                    label="书签总数"
+                    value={formatCount(totalCount)}
+                    color="var(--accent)"
+                    hint="浏览器原生收藏夹"
+                  />
+                  <InlineStat
+                    icon={<FolderTree size={11} />}
+                    label="文件夹"
+                    value={String(folders.length)}
+                    color="var(--info)"
+                    hint={`本页已选 ${folderIds.length} 个`}
+                  />
+                  <InlineStat
+                    icon={<Sparkles size={11} />}
+                    label="近 7 天"
+                    value={`+${stats.recent}`}
+                    color="var(--ok)"
+                    hint="最近收藏的链接"
+                  />
+                  <InlineStat
+                    icon={<HeartPulse size={11} />}
+                    label="链接健康度"
+                    value={stats.rate === null ? '—' : `${stats.rate}%`}
+                    color={stats.rate === null ? 'var(--text-faint)' : stats.rate >= 90 ? 'var(--ok)' : 'var(--warn)'}
+                    hint={stats.known ? `已检测 ${stats.known} 条` : '在管理台运行智能清理'}
+                  />
+                </>
+              )}
+              <span className="chip" title="所有数据只保存在本机，不上传服务器">
+                <ShieldCheck size={11} className="text-ok" aria-hidden="true" />
+                仅存本机
+              </span>
             </div>
-          )}
+          </div>
 
           {error && (
             <p className="mt-3 rounded-[6px] border px-3 py-2 text-[12.5px]" style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}>
@@ -220,7 +322,7 @@ export default function App() {
 
         <Dashboard folderIds={folderIds} health={health} onPickFolders={openPicker} onEdit={editBookmark} />
 
-        <footer className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line px-4 py-3 text-[11px] text-text-faint lg:px-7">
+        <footer className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line px-4 py-3 text-[11px] text-text-faint lg:px-6">
           <span className="mono">Ctrl/⌘ + K 聚焦搜索</span>
           <span className="mono">地址栏输入 bm + 空格 直接搜书签</span>
           <span className="ml-auto">SmartBookmark Hub · 本地优先，不上传任何数据</span>

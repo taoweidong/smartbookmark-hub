@@ -3,6 +3,7 @@ import { useId } from 'react';
 interface BrandProps {
   size?: number;
   withWordmark?: boolean;
+  compact?: boolean;
   className?: string;
 }
 
@@ -39,16 +40,19 @@ export function BrandMark({ size = 30 }: { size?: number }) {
   );
 }
 
-export function Brand({ size = 30, withWordmark = true, className = '' }: BrandProps) {
+export function Brand({ size = 30, withWordmark = true, compact = false, className = '' }: BrandProps) {
   return (
     <div className={`flex items-center gap-2.5 ${className}`}>
       <BrandMark size={size} />
-      {withWordmark && (
-        <div className="leading-none">
-          <div className="display text-[15px] text-text">智能书签管家</div>
-          <div className="mono mt-1 text-[9px] tracking-[0.18em] text-text-faint">SMARTBOOKMARK HUB</div>
-        </div>
-      )}
+      {withWordmark &&
+        (compact ? (
+          <span className="display text-[14px] leading-none text-text">智能书签管家</span>
+        ) : (
+          <div className="leading-none">
+            <div className="display text-[15px] text-text">智能书签管家</div>
+            <div className="mono mt-1 text-[9px] tracking-[0.18em] text-text-faint">SMARTBOOKMARK HUB</div>
+          </div>
+        ))}
     </div>
   );
 }

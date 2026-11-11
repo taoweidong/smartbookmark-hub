@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { LayoutGrid, Rows3, FolderCog, RotateCcw, ImagePlus, BarChart3 } from 'lucide-react';
+import { LayoutGrid, Rows3, RotateCcw, ImagePlus, BarChart3 } from 'lucide-react';
 import { store, useApp } from '@/core/store';
 import type { Settings } from '@/core/types';
 import { Segmented } from '@/ui/components/Controls';
@@ -23,7 +23,7 @@ function ToolGroup({ label, children }: { label: string; children: React.ReactNo
   );
 }
 
-export function DisplayControls({ onPickFolders }: { onPickFolders(): void }) {
+export function DisplayControls() {
   const dashboard = useApp((state) => state.settings.dashboard);
   const accent = useApp((state) => state.settings.accent);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -54,7 +54,12 @@ export function DisplayControls({ onPickFolders }: { onPickFolders(): void }) {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line px-4 py-2 lg:px-7">
+    <div
+      id="sbh-view-bar"
+      role="group"
+      aria-label="视图设置"
+      className="view-bar-in flex flex-wrap items-center gap-x-3.5 gap-y-1.5 border-t border-line px-4 py-1.5 lg:px-6"
+    >
       <ToolGroup label="布局">
         <Segmented
           label="卡片布局"
@@ -201,10 +206,6 @@ export function DisplayControls({ onPickFolders }: { onPickFolders(): void }) {
       </button>
 
       <div className="ml-auto flex items-center gap-1.5">
-        <button type="button" className="btn btn-sm btn-primary" onClick={onPickFolders}>
-          <FolderCog size={12} aria-hidden="true" />
-          选择文件夹
-        </button>
         <button
           type="button"
           className="btn btn-sm"

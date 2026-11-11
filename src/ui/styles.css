@@ -671,6 +671,39 @@ html.light .aurora-layer {
   animation: drawer-in 220ms cubic-bezier(0.22, 0.8, 0.3, 1) both;
 }
 
+@keyframes view-bar-in {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.view-bar-in {
+  animation: view-bar-in 180ms cubic-bezier(0.22, 0.8, 0.3, 1) both;
+}
+
+/* 横向滚动条按站点视觉语言绘制：细、配色取自主题，悬停点亮主色 */
+.sbh-scroll-x {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) transparent;
+}
+.sbh-scroll-x::-webkit-scrollbar {
+  height: 6px;
+}
+.sbh-scroll-x::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sbh-scroll-x::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb);
+  border-radius: 999px;
+}
+.sbh-scroll-x::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
 .folder-rail-item {
   position: relative;
   display: flex;
